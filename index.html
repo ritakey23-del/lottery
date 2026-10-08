@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>💎 抽獎機</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-8 flex flex-col items-center">
+  <div class="max-w-2xl w-full bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+    <h1 class="text-2xl font-bold text-center text-teal-400 mb-6">🩵 SHINee 祭品文開獎面板</h1>
+
+    <!-- 檔案上傳 -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-slate-300 mb-2">上傳留言 JSON 檔：</label>
+      <input type="file" id="fileInput" accept=".json" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-500 file:text-white hover:file:bg-teal-600"/>
+    </div>
+
+    <!-- 篩選條件設定 -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="block text-sm text-slate-300 mb-1">許願關鍵字篩選 (可選)：</label>
+        <input type="text" id="keyword" placeholder="例如：帽子 / 娃包 / 風扇" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-teal-400">
+      </div>
+      <div>
+        <label class="block text-sm text-slate-300 mb-1">抽出人數：</label>
+        <input type="number" id="winnerCount" value="1" min="1" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-teal-400">
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-400 mb-6">
+      載入名單總數：<span id="totalCount" class="text-teal-300 font-bold">0</span> 人
+    </div>
+
+    <button id="drawBtn" class="w-full py-3 bg-teal-500 hover:bg-teal-600 font-bold rounded-xl transition text-lg shadow-lg shadow-teal-500/30">
+      🎉 開始抽獎
+    </button>
+
+    <!-- 得獎名單展示 -->
+    <div class="mt-8">
+      <h2 class="text-lg font-semibold text-slate-200 mb-3">🏆 得獎名單：</h2>
+      <div id="winnersList" class="space-y-2">
+        <p class="text-sm text-slate-500 italic">尚未開獎</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let rawList = [];
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        rawList = JSON.parse(evt.target.result);
+        document.getElementById('totalCount').innerText = rawList.length;
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('drawBtn').addEventListener('click', function() {
+      if (rawList.length === 0) return alert('請先載入名單 JSON！');
+
+      const keyword = document.getElementById('keyword').value.trim();
+      const count = parseInt(document.getElementById('winnerCount').value, 10);
+
+      // 關鍵字過濾
+      let pool = rawList;
+      if (keyword) {
+        pool = pool.filter(item => item.text.includes(keyword));
+      }
+
+      if (pool.length === 0) return alert('在篩選條件下沒有符合的留言者！');
+
+      // 隨機抽籤（Fisher-Yates Shuffle）
+      const shuffled = [...pool];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      const winners = shuffled.slice(0, Math.min(count, shuffled.length));
+
+      // 渲染畫面
+      const listEl = document.getElementById('winnersList');
+      listEl.innerHTML = '';
+      winners.forEach((w, idx) => {
+        const card = document.createElement('div');
+        card.className = "p-3 bg-slate-700/60 border border-slate-600 rounded-lg flex flex-col gap-1";
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-teal-300">#${idx + 1} @${w.username}</span>
+          </div>
+          <p class="text-xs text-slate-300 bg-slate-800 p-2 rounded">${w.text}</p>
+        `;
+        listEl.appendChild(card);
+      });
+    });
+  </script>
+</body>
+</html>
