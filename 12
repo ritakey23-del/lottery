@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💎 SHINee 台灣團體開唱祭品文開獎系統</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pearl: {
+              300: '#a3f3e6',
+              400: '#79E2D0', /* Pearl Aqua */
+              500: '#2dd4bf',
+              600: '#00B2A9',
+              900: '#062d29',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & Canvas Confetti -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <style>
+    /* Custom scrollbar & glass styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(121, 226, 208, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(121, 226, 208, 0.6);
+    }
+    .pearl-glow {
+      box-shadow: 0 0 25px -5px rgba(121, 226, 208, 0.3);
+    }
+    .pearl-text-glow {
+      text-shadow: 0 0 16px rgba(121, 226, 208, 0.45);
+    }
+  </style>
+</head>
+
+<body class="bg-[#0b1019] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-pearl-500 selection:text-slate-900 relative overflow-x-hidden">
+
+  <!-- Background decorative light bursts -->
+  <div class="fixed top-0 left-1/4 w-96 h-96 bg-pearl-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+  <div class="fixed bottom-10 right-1/4 w-[30rem] h-[30rem] bg-pearl-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="border-b border-pearl-500/20 backdrop-blur-md bg-slate-950/40 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl animate-pulse">💎</span>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold tracking-wide pearl-text-glow text-pearl-400">
+            SHINee 祭品文抽獎系統
+          </h1>
+          <p class="text-[10px] md:text-xs text-slate-400">
+            Pearlescent Sky Blue • 集氣開唱 願望成真
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button id="openScraperBtn" class="flex items-center gap-1.5 text-xs md:text-sm px-3.5 py-1.5 rounded-full border border-pearl-400/40 hover:border-pearl-400 hover:bg-pearl-500/10 text-pearl-300 transition duration-200">
+          <i data-lucide="code-2" class="w-4 h-4"></i>
+          <span>抓留言腳本庫</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    
+    <!-- Left Column: Settings & Data Input (5 cols) -->
+    <div class="lg:col-span-5 space-y-6">
+      
+      <!-- Card: Data Source -->
+      <section class="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 backdrop-blur shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <i data-lucide="database" class="w-5 h-5 text-pearl-400"></i>
+            <h2 class="font-semibold text-slate-200">名單資料來源</h2>
+          </div>
+          <span id="poolBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-pearl-300 border border-pearl-500/30">
+            籤池：0
+          </span>
+        </div>
+
+        <!-- Mode Tabs: Upload vs Paste -->
+        <div class="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl mb-4 text-xs font-medium">
+          <button id="tabUpload" class="py-2 rounded-lg bg-pearl-500 text-slate-950 font-bold transition">匯入 JSON 檔</button>
+          <button id="tabPaste" class="py-2 rounded-lg text-slate-400 hover:text-white transition">手動貼上 / 示範</button>
+        </div>
+
+        <!-- Upload View -->
+        <div id="viewUpload" class="space-y-3">
+          <label class="border-2 border-dashed border-slate-700 hover:border-pearl-400/60 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition bg-slate-950/30 group">
+            <i data-lucide="upload-cloud" class="w-8 h-8 text-slate-400 group-hover:text-pearl-400 transition mb-2"></i>
+            <span class="text-xs text-slate-300 font-medium">點擊或拖曳 JSON 留言檔至此</span>
+            <span class="text-[10px] text-slate-500 mt-1">相容 Threads / IG 腳本抓取結果</span>
+            <input type="file" id="jsonFileInput" accept=".json" class="hidden">
+          </label>
+        </div>
+
+        <!-- Paste / Mock View -->
+        <div id="viewPaste" class="hidden space-y-3">
+          <textarea id="pasteInput" rows="4" placeholder="每行一個帳號，例如：&#10;shinee_taem #帽子 @friend1&#10;key_freak #娃包 @friend2 @friend3" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-pearl-400"></textarea>
+          <div class="flex gap-2">
+            <button id="parsePasteBtn" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-pearl-300 font-medium rounded-lg transition border border-slate-700">
+              套用名單
+            </button>
+            <button id="loadMockBtn" class="px-3 py-1.5 bg-pearl-500/10 hover:bg-pearl-500/20 text-xs text-pearl-400 rounded-lg transition border border-pearl-500/30">
+              載入閃窩示範名單
+            </button>
+          </div>
+        </div>
+
+        <!-- Data Summary Stats -->
+        <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between text-[11px] text-slate-400">
+          <span>原始回覆：<strong id="statRawCount" class="text-slate-200">0</strong> 則</span>
+          <span>獨立帳號：<strong id="statUserCount" class="text-slate-200">0</strong> 人</span>
+          <span>有效抽獎籤：<strong id="statTicketCount" class="text-pearl-300">0</strong> 張</span>
+        </div>
+      </section>
+
+      <!-- Card: Giveaway Rules & Filter Settings -->
+      <section class="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 backdrop-blur shadow-lg space-y-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-pearl-400"></i>
+          <h2 class="font-semibold text-slate-200">抽獎機制與過濾條件</h2>
+        </div>
+
+        <!-- Platform Mode Switch -->
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">社群平台機制相容模式：</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+              <input type="radio" name="platformMode" value="threads" checked class="text-pearl-500 focus:ring-0">
+              <div>
+                <div class="font-medium text-slate-200">Threads 模式</div>
+                <div class="text-[10px] text-slate-500">一人一籤，可指定品項關鍵字</div>
+              </div>
+            </label>
+            <label class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+              <input type="radio" name="platformMode" value="ig" class="text-pearl-500 focus:ring-0">
+              <div>
+                <div class="font-medium text-slate-200">Instagram 模式</div>
+                <div class="text-[10px] text-slate-500">可多投，需標記 @不同好友</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Prize Presets Selector -->
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">當前欲開獎項（預設祭品清單）：</label>
+          <select id="prizePresetSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-pearl-300 font-medium focus:outline-none focus:border-pearl-400">
+            <option value="hat">👑 2025 Keyland 入場帽子 (1名)</option>
+            <option value="bag">🎒 2025 Keyland 娃包 (1名)</option>
+            <option value="fan">🩵 2026 SHINee 八巡 入場風扇 (1名)</option>
+            <option value="charm">⛩️ 3coins × 車折神社 蕾絲御守 (自訂數量)</option>
+            <option value="photocard">✨ 滿額小卡 / 專輯 (隨機掉落加碼)</option>
+            <option value="custom">⚙️ 自訂其他獎項名稱與名額</option>
+          </select>
+        </div>
+
+        <!-- Custom Details -->
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">獎項名稱：</label>
+            <input type="text" id="prizeTitleInput" value="2025 Keyland 入場帽子" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-pearl-400">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">抽出得獎名額：</label>
+            <input type="number" id="winnerCountInput" value="1" min="1" max="50" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-pearl-400">
+          </div>
+        </div>
+
+        <!-- Keyword Filter -->
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="text-xs text-slate-400">留言關鍵字過濾 (選填，留空不限)：</label>
+            <span class="text-[10px] text-slate-500">例如：#帽子 或 娃包</span>
+          </div>
+          <input type="text" id="keywordFilterInput" placeholder="僅抽有包含此文字的留言..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-pearl-400">
+        </div>
+
+        <!-- Exclusion Toggle -->
+        <div class="pt-2">
+          <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+            <input type="checkbox" id="excludePrevWinners" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-pearl-500 focus:ring-0">
+            <span>排除已中獎者（避免一人獨得複數大獎）</span>
+          </label>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Right Column: Lottery Stage & Winner Record (7 cols) -->
+    <div class="lg:col-span-7 space-y-6">
+      
+      <!-- Stage: Rolling & Drawing Area -->
+      <section class="bg-gradient-to-b from-slate-900/90 to-slate-950 border border-pearl-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden pearl-glow">
+        <div class="text-center space-y-2 mb-6">
+          <span class="text-xs tracking-widest uppercase text-pearl-400 font-semibold px-3 py-1 rounded-full bg-pearl-500/10 border border-pearl-500/20">
+            OFFICIAL DRAW STAGE
+          </span>
+          <h2 id="currentStagePrize" class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+            2025 Keyland 入場帽子
+          </h2>
+          <p id="poolSummaryStatus" class="text-xs text-slate-400">
+            符合條件籤數：<span class="text-pearl-300 font-bold">0</span> 張 • 預計抽出：<span class="text-pearl-300 font-bold">1</span> 位
+          </p>
+        </div>
+
+        <!-- Shuffling Box Screen -->
+        <div class="relative bg-slate-950/80 border border-slate-800 rounded-2xl h-36 flex flex-col items-center justify-center p-4 shadow-inner overflow-hidden">
+          <div id="slotSpinner" class="text-center transition-all">
+            <div id="slotHandle" class="text-xl md:text-2xl font-black tracking-wider text-pearl-400 font-mono">
+              @READY_TO_SHINE
+            </div>
+            <div id="slotSnippet" class="text-xs text-slate-400 max-w-md line-clamp-1 mt-1.5 italic">
+              「準備好等待奇蹟實現了！閃光萬歲 💎」
+            </div>
+          </div>
+          <!-- Shimmer glow line -->
+          <div class="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-pearl-400 to-transparent opacity-60"></div>
+        </div>
+
+        <!-- Action Draw Button -->
+        <div class="mt-6">
+          <button id="startDrawBtn" class="w-full py-4 bg-gradient-to-r from-pearl-500 to-pearl-600 hover:from-pearl-400 hover:to-pearl-500 text-slate-950 font-black rounded-xl text-lg tracking-wider transition-all transform active:scale-[0.99] shadow-lg shadow-pearl-500/30 flex items-center justify-center gap-2">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+            <span>開始抽出幸運閃窩</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Winners Ledger & Export Panel -->
+      <section class="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 backdrop-blur shadow-lg space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="trophy" class="w-5 h-5 text-amber-400"></i>
+            <h3 class="font-semibold text-slate-200">已開出得獎紀錄 (<span id="winnerRecordCount">0</span>)</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="copyWinnersBtn" class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>複製開獎串文</span>
+            </button>
+            <button id="clearWinnersBtn" class="text-xs px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition">
+              重設紀錄
+            </button>
+          </div>
+        </div>
+
+        <!-- Winner Cards List -->
+        <div id="winnersContainer" class="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+          <!-- Empty State -->
+          <div id="emptyWinnersNotice" class="text-center py-12 text-slate-500 text-xs">
+            尚未抽出得獎者，請在上方點擊「開始抽出」！
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal / Drawer: Web Scraper Helper Scripts -->
+  <div id="scraperModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-pearl-500/30 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="terminal" class="w-5 h-5 text-pearl-400"></i>
+          <h3 class="font-bold text-slate-100">瀏覽器 Console 自動抓取腳本</h3>
+        </div>
+        <button id="closeScraperBtn" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="overflow-y-auto py-4 space-y-4 text-xs">
+        <p class="text-slate-400 leading-relaxed">
+          不需安裝任何付費外掛！用電腦版 Chrome 開啟你的貼文頁面，按 <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-pearl-300">F12</kbd> 切換至 <strong>Console</strong>，貼上下方對應腳本並按 Enter，結束後會自動下載 JSON 檔：
+        </p>
+
+        <!-- Threads Tab -->
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800">
+          <div class="flex justify-between items-center mb-2">
+            <span class="font-semibold text-pearl-300 flex items-center gap-1.5">
+              <span>🩵 Threads 串文留言抓取腳本</span>
+            </span>
+            <button onclick="copyScript('threads')" class="px-2.5 py-1 bg-pearl-500/20 hover:bg-pearl-500/30 text-pearl-300 rounded border border-pearl-500/40 text-[11px] transition">
+              複製腳本
+            </button>
+          </div>
+          <pre class="bg-slate-900 p-2.5 rounded text-[10px] text-slate-300 overflow-x-auto select-all font-mono leading-normal">
+async function scrapeThreads(){const e=new Map;let t=0;while(t&lt;4){window.scrollTo(0,document.body.scrollHeight);await new Promise(e=&gt;setTimeout(e,1500));document.querySelectorAll("article").forEach((t,n)=&gt;{if(0===n)return;const o=t.querySelector("header a, a[role='link']"),r=t.querySelector("div[dir='auto']"),s=o?o.textContent.trim().replace("@",""):null,l=r?r.textContent.trim():"";s&amp;&amp;!e.has(s)&amp;&amp;e.set(s,{username:s,text:l,mentions:[...l.matchAll(/@([\w._]+)/g)].map(e=&gt;e[1].toLowerCase())})});const n=document.body.scrollHeight;t=n===last?t+1:0,last=n}const n=new Blob([JSON.stringify(Array.from(e.values()),null,2)],{type:"application/json"}),o=document.createElement("a");o.href=URL.createObjectURL(n),o.download=`threads_${Date.now()}.json`,o.click()}var last=0;scrapeThreads();</pre>
+        </div>
+
+        <!-- IG Tab -->
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800">
+          <div class="flex justify-between items-center mb-2">
+            <span class="font-semibold text-pearl-300 flex items-center gap-1.5">
+              <span>📸 Instagram 貼文留言抓取腳本 (支援標記好友判定)</span>
+            </span>
+            <button onclick="copyScript('ig')" class="px-2.5 py-1 bg-pearl-500/20 hover:bg-pearl-500/30 text-pearl-300 rounded border border-pearl-500/40 text-[11px] transition">
+              複製腳本
+            </button>
+          </div>
+          <pre class="bg-slate-900 p-2.5 rounded text-[10px] text-slate-300 overflow-x-auto select-all font-mono leading-normal">
+async function scrapeIG(loops=100){for(let i=0;i&lt;loops;i++){const b=[...document.querySelectorAll("ul button, div[role='button']")].find(b=&gt;b.textContent.includes("更多留言")||b.textContent.includes("more comments")||b.querySelector("svg[aria-label*='載入']"));if(b){b.click();await new Promise(r=&gt;setTimeout(r,1200))}else{window.scrollBy(0,1000);await new Promise(r=&gt;setTimeout(r,800))}}const items=[];document.querySelectorAll("ul &gt; div &gt; li, ul &gt; li[role='menuitem']").forEach(li=&gt;{const u=li.querySelector("h3 a, a[role='link']"),t=li.querySelector("span[dir='auto'], div[dir='auto']");if(u&amp;&amp;t){const un=u.textContent.trim().replace("@",""),txt=t.textContent.trim();items.push({username:un,text:txt,mentions:[...new Set([...txt.matchAll(/@([\w._]+)/g)].map(m=&gt;m[1].toLowerCase()).filter(m=&gt;m!==un.toLowerCase()))]})}});const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`ig_${Date.now()}.json`;a.click()}scrapeIG();</pre>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 text-right">
+        <button id="closeScraperBtn2" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-medium transition">
+          關閉視窗
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 border border-pearl-400/50 text-slate-100 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-pearl-400"></i>
+    <span id="toastMsg">已完成操作</span>
+  </div>
+
+  <!-- JavaScript Application Logic -->
+  <script>
+    // State
+    let rawComments = [];
+    let winnersHistory = []; // { id, prize, username, text, validMentions, timestamp }
+    let isDrawing = false;
+
+    // Presets mapping
+    const PRESETS = {
+      hat: { title: "2025 Keyland 入場帽子", count: 1, keyword: "#帽子" },
+      bag: { title: "2025 Keyland 娃包", count: 1, keyword: "#娃包" },
+      fan: { title: "2026 SHINee 八巡 入場風扇", count: 1, keyword: "#風扇" },
+      charm: { title: "3coins × 車折神社 蕾絲御守", count: 3, keyword: "" },
+      photocard: { title: "滿額小卡 / 專輯 (加碼盲盒)", count: 2, keyword: "" },
+      custom: { title: "自訂特別獎項", count: 1, keyword: "" }
+    };
+
+    // Sample Mock Data for Testing
+    const MOCK_DATA = [
+      { username: "taemin_718", text: "祈願閃耀回歸台灣！本命李泰民想看 Guilty 現場 #帽子 @onew_lee @key_bum", mentions: ["onew_lee", "key_bum"] },
+      { username: "taemin_718", text: "再加碼留言一次！希望能抽到 #帽子 @minho_choi", mentions: ["minho_choi"] },
+      { username: "keyland_freak", text: "拜託給我金起範小卡！好想去現場看八巡 #娃包 @shawol_tw", mentions: ["shawol_tw"] },
+      { username: "dubuleader_one", text: "大隊一定要來台灣開團體演唱會！最想聽 Sherlock 現場 #風扇 @dubu_fan", mentions: ["dubu_fan"] },
+      { username: "flaming_minho", text: "應援一定到！我想要車折神社的蕾絲御守神席保佑！ #御守 @friend_a", mentions: ["friend_a"] },
+      { username: "shawol_tw_90s", text: "SHINee is BACK! 等了這麼多年無論如何都要全勤！ #帽子 @kpop_lover", mentions: ["kpop_lover"] },
+      { username: "bling_jonghyun", text: "永遠的五閃，想抽八巡入場風扇夏天吹涼涼 #風扇 @shawol_forever", mentions: ["shawol_forever"] },
+      { username: "shinee_world_5", text: "抽個娃包帶孩子們去看演唱會！五光十色！ #娃包 @friend_b", mentions: ["friend_b"] },
+      { username: "shawol_lucky", text: "希望今年八巡順利開唱！不管是御守還是小卡都很想要！ @friend_c", mentions: ["friend_c"] }
+    ];
+
+    // Initialize Lucide Icons
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      updateStageView();
+    });
+
+    // Toast Helper
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      const msgEl = document.getElementById("toastMsg");
+      msgEl.innerText = msg;
+      toast.classList.remove("translate-y-20", "opacity-0", "pointer-events-none");
+      setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0", "pointer-events-none");
+      }, 2500);
+    }
+
+    // Tabs Switch
+    document.getElementById("tabUpload").addEventListener("click", () => {
+      document.getElementById("tabUpload").className = "py-2 rounded-lg bg-pearl-500 text-slate-950 font-bold transition";
+      document.getElementById("tabPaste").className = "py-2 rounded-lg text-slate-400 hover:text-white transition";
+      document.getElementById("viewUpload").classList.remove("hidden");
+      document.getElementById("viewPaste").classList.add("hidden");
+    });
+
+    document.getElementById("tabPaste").addEventListener("click", () => {
+      document.getElementById("tabPaste").className = "py-2 rounded-lg bg-pearl-500 text-slate-950 font-bold transition";
+      document.getElementById("tabUpload").className = "py-2 rounded-lg text-slate-400 hover:text-white transition";
+      document.getElementById("viewPaste").classList.remove("hidden");
+      document.getElementById("viewUpload").classList.add("hidden");
+    });
+
+    // Preset Selection change
+    document.getElementById("prizePresetSelect").addEventListener("change", (e) => {
+      const preset = PRESETS[e.target.value];
+      if (preset) {
+        document.getElementById("prizeTitleInput").value = preset.title;
+        document.getElementById("winnerCountInput").value = preset.count;
+        document.getElementById("keywordFilterInput").value = preset.keyword;
+        updateStageView();
+      }
+    });
+
+    document.getElementById("prizeTitleInput").addEventListener("input", updateStageView);
+    document.getElementById("winnerCountInput").addEventListener("input", updateStageView);
+    document.getElementById("keywordFilterInput").addEventListener("input", updateStageView);
+    document.querySelectorAll("input[name='platformMode']").forEach(el => el.addEventListener("change", updateStageView));
+    document.getElementById("excludePrevWinners").addEventListener("change", updateStageView);
+
+    // File Upload Handler
+    document.getElementById("jsonFileInput").addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const data = JSON.parse(evt.target.result);
+          if (Array.isArray(data)) {
+            rawComments = data;
+            showToast(`成功載入 ${data.length} 筆留言！`);
+            updateStatsAndPool();
+          } else {
+            showToast("JSON 格式需為陣列 (Array)！");
+          }
+        } catch (err) {
+          showToast("JSON 解析失敗，請確認檔案內容！");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // Load Mock Data
+    document.getElementById("loadMockBtn").addEventListener("click", () => {
+      rawComments = [...MOCK_DATA];
+      showToast("已載入 9 筆閃窩測試留言！");
+      updateStatsAndPool();
+    });
+
+    // Manual Paste Parsing
+    document.getElementById("parsePasteBtn").addEventListener("click", () => {
+      const text = document.getElementById("pasteInput").value.trim();
+      if (!text) return showToast("請先輸入留言名單！");
+
+      const lines = text.split("\n").filter(l => l.trim().length > 0);
+      rawComments = lines.map((line, idx) => {
+        const parts = line.split(" ");
+        const username = parts[0].replace("@", "").trim();
+        const mentions = [...line.matchAll(/@([\w._]+)/g)]
+          .map(m => m[1].toLowerCase())
+          .filter(m => m !== username.toLowerCase());
+
+        return {
+          username: username || `user_${idx+1}`,
+          text: line,
+          mentions: Array.from(new Set(mentions))
+        };
+      });
+
+      showToast(`已解析 ${rawComments.length} 筆手動資料！`);
+      updateStatsAndPool();
+    });
+
+    // Update Stats and Ticket Pool
+    function computeTicketPool() {
+      const platformMode = document.querySelector("input[name='platformMode']:checked").value;
+      const keyword = document.getElementById("keywordFilterInput").value.trim().toLowerCase();
+      const excludePrev = document.getElementById("excludePrevWinners").checked;
+      
+      const prevWinnerUsers = new Set(winnersHistory.map(w => w.username.toLowerCase()));
+
+      let pool = [];
+
+      if (platformMode === "threads") {
+        // Threads: Single entry per unique user
+        const userMap = new Map();
+        rawComments.forEach(item => {
+          const u = item.username;
+          if (!userMap.has(u)) {
+            userMap.set(u, item);
+          }
+        });
+
+        userMap.forEach((comment, user) => {
+          if (excludePrev && prevWinnerUsers.has(user.toLowerCase())) return;
+          if (keyword && !comment.text.toLowerCase().includes(keyword)) return;
+
+          pool.push({
+            username: user,
+            text: comment.text,
+            validMentions: comment.mentions || []
+          });
+        });
+
+      } else {
+        // IG: Allows multiple entries, but requires distinct tagged friends per ticket
+        const userTaggedHistory = new Map();
+
+        rawComments.forEach(comment => {
+          const user = comment.username;
+          if (excludePrev && prevWinnerUsers.has(user.toLowerCase())) return;
+          if (keyword && !comment.text.toLowerCase().includes(keyword)) return;
+
+          if (!userTaggedHistory.has(user)) {
+            userTaggedHistory.set(user, new Set());
+          }
+
+          const history = userTaggedHistory.get(user);
+          const mentions = comment.mentions || [];
+          const newMentions = mentions.filter(m => !history.has(m));
+
+          // If at least 1 new friend tagged, award 1 ticket (or if no mentions rule, fallback to text)
+          if (mentions.length === 0 || newMentions.length > 0) {
+            newMentions.forEach(m => history.add(m));
+            pool.push({
+              username: user,
+              text: comment.text,
+              validMentions: newMentions
+            });
+          }
+        });
+      }
+
+      return pool;
+    }
+
+    function updateStatsAndPool() {
+      const uniqueUsers = new Set(rawComments.map(c => c.username)).size;
+      const currentPool = computeTicketPool();
+
+      document.getElementById("statRawCount").innerText = rawComments.length;
+      document.getElementById("statUserCount").innerText = uniqueUsers;
+      document.getElementById("statTicketCount").innerText = currentPool.length;
+      document.getElementById("poolBadge").innerText = `籤池：${currentPool.length}`;
+
+      updateStageView(currentPool.length);
+    }
+
+    function updateStageView(poolSize) {
+      const prizeTitle = document.getElementById("prizeTitleInput").value || "未命名獎項";
+      const winnerCount = document.getElementById("winnerCountInput").value || 1;
+      const validPool = poolSize !== undefined ? poolSize : computeTicketPool().length;
+
+      document.getElementById("currentStagePrize").innerText = prizeTitle;
+      document.getElementById("poolSummaryStatus").innerHTML = `
+        符合條件籤數：<span class="text-pearl-300 font-bold">${validPool}</span> 張 • 預計抽出：<span class="text-pearl-300 font-bold">${winnerCount}</span> 位
+      `;
+    }
+
+    // Drawing Procedure with Slot Animation & Confetti
+    document.getElementById("startDrawBtn").addEventListener("click", () => {
+      if (isDrawing) return;
+
+      const pool = computeTicketPool();
+      const count = parseInt(document.getElementById("winnerCountInput").value, 10) || 1;
+      const prizeName = document.getElementById("prizeTitleInput").value.trim() || "限定祭品";
+
+      if (pool.length === 0) {
+        showToast("目前沒有符合篩選條件的抽獎籤！");
+        return;
+      }
+
+      isDrawing = true;
+      const drawBtn = document.getElementById("startDrawBtn");
+      drawBtn.disabled = true;
+      drawBtn.classList.add("opacity-50", "cursor-not-allowed");
+
+      const slotHandle = document.getElementById("slotHandle");
+      const slotSnippet = document.getElementById("slotSnippet");
+
+      // Shuffling Animation
+      let counter = 0;
+      const shuffleInterval = setInterval(() => {
+        const randomPick = pool[Math.floor(Math.random() * pool.length)];
+        slotHandle.innerText = `@${randomPick.username}`;
+        slotSnippet.innerText = `「${randomPick.text.slice(0, 35)}...」`;
+        counter++;
+      }, 70);
+
+      setTimeout(() => {
+        clearInterval(shuffleInterval);
+
+        // Actual Fisher-Yates Draw
+        const shuffled = [...pool];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        // Distinct winners selection in this draw
+        const currentWinners = [];
+        const seenInThisDraw = new Set();
+
+        for (const ticket of shuffled) {
+          if (!seenInThisDraw.has(ticket.username)) {
+            seenInThisDraw.add(ticket.username);
+            currentWinners.push({
+              id: Date.now() + Math.random().toString(36).substring(2, 6),
+              prize: prizeName,
+              username: ticket.username,
+              text: ticket.text,
+              validMentions: ticket.validMentions || [],
+              timestamp: new Date().toLocaleTimeString('zh-TW', { hour12: false })
+            });
+            if (currentWinners.length >= count) break;
+          }
+        }
+
+        // Add to history
+        winnersHistory.unshift(...currentWinners);
+
+        // Display lead winner in slot
+        const lead = currentWinners[0];
+        slotHandle.innerText = `🎉 @${lead.username}`;
+        slotSnippet.innerText = `「${lead.text}」`;
+
+        // Confetti Fireworks!
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#79E2D0', '#2dd4bf', '#ffffff', '#ffd700']
+        });
+
+        renderWinnersList();
+        updateStatsAndPool();
+        showToast(`恭喜！已抽出 ${currentWinners.length} 位得獎者！`);
+
+        isDrawing = false;
+        drawBtn.disabled = false;
+        drawBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      }, 2600);
+    });
+
+    // Render Winners List
+    function renderWinnersList() {
+      const container = document.getElementById("winnersContainer");
+      const recordCount = document.getElementById("winnerRecordCount");
+      recordCount.innerText = winnersHistory.length;
+
+      if (winnersHistory.length === 0) {
+        container.innerHTML = `
+          <div id="emptyWinnersNotice" class="text-center py-12 text-slate-500 text-xs">
+            尚未抽出得獎者，請在上方點擊「開始抽出」！
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = "";
+      winnersHistory.forEach((w, index) => {
+        const item = document.createElement("div");
+        item.className = "p-3.5 bg-slate-950/60 border border-slate-800 hover:border-pearl-500/40 rounded-xl space-y-1.5 transition";
+
+        const mentionsHtml = w.validMentions.length > 0 
+          ? `<div class="text-[10px] text-pearl-300/80 flex items-center gap-1 flex-wrap">
+               <span class="text-slate-500">有效標記好友:</span>
+               ${w.validMentions.map(m => `<span class="bg-pearl-500/10 px-1.5 py-0.5 rounded border border-pearl-500/20">@${m}</span>`).join("")}
+             </div>`
+          : "";
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-pearl-500/20 text-pearl-300 font-bold text-[11px] border border-pearl-500/30">
+                ${w.prize}
+              </span>
+              <strong class="text-sm text-white font-mono">@${w.username}</strong>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">${w.timestamp}</span>
+          </div>
+          <div class="text-xs text-slate-300 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80 font-sans">
+            ${w.text}
+          </div>
+          ${mentionsHtml}
+        `;
+        container.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    // Reset Winners Record
+    document.getElementById("clearWinnersBtn").addEventListener("click", () => {
+      if (winnersHistory.length === 0) return;
+      winnersHistory = [];
+      renderWinnersList();
+      updateStatsAndPool();
+      showToast("已清空所有得獎紀錄！");
+    });
+
+    // Copy formatted winner list for social post announcement
+    document.getElementById("copyWinnersBtn").addEventListener("click", () => {
+      if (winnersHistory.length === 0) {
+        showToast("目前尚無任何得獎名單可複製！");
+        return;
+      }
+
+      let text = "💎【SHINee 祭品文 開獎公告】💎\n\n感謝大家的熱情集氣！恭喜以下幸運的得獎閃窩：\n\n";
+      
+      // Group by prize
+      const grouped = {};
+      winnersHistory.forEach(w => {
+        if (!grouped[w.prize]) grouped[w.prize] = [];
+        grouped[w.prize].push(w.username);
+      });
+
+      for (const [prize, users] of Object.entries(grouped)) {
+        text += `🎁 ${prize}：\n`;
+        users.forEach(u => text += `  • @${u}\n`);
+        text += "\n";
+      }
+
+      text += "請得獎者於 48 小時內私訊收件資料（賣貨便 / 郵寄），逾期將重新抽出！再次祝大家八巡神席全勤 🩵";
+
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+
+      showToast("已複製得獎公告文案至剪貼簿！");
+    });
+
+    // Scraper Modal Controls
+    const scraperModal = document.getElementById("scraperModal");
+    document.getElementById("openScraperBtn").addEventListener("click", () => scraperModal.classList.remove("hidden"));
+    document.getElementById("closeScraperBtn").addEventListener("click", () => scraperModal.classList.add("hidden"));
+    document.getElementById("closeScraperBtn2").addEventListener("click", () => scraperModal.classList.add("hidden"));
+
+    // Copy Scraper helper function
+    window.copyScript = function(type) {
+      const threadsScript = `async function scrapeThreads(){const e=new Map;let t=0;while(t<4){window.scrollTo(0,document.body.scrollHeight);await new Promise(e=>setTimeout(e,1500));document.querySelectorAll("article").forEach((t,n)=>{if(0===n)return;const o=t.querySelector("header a, a[role='link']"),r=t.querySelector("div[dir='auto']"),s=o?o.textContent.trim().replace("@",""):null,l=r?r.textContent.trim():"";s&&!e.has(s)&&e.set(s,{username:s,text:l,mentions:[...l.matchAll(/@([\\w._]+)/g)].map(e=>e[1].toLowerCase())})});const n=document.body.scrollHeight;t=n===last?t+1:0,last=n}const n=new Blob([JSON.stringify(Array.from(e.values()),null,2)],{type:"application/json"}),o=document.createElement("a");o.href=URL.createObjectURL(n),o.download=\`threads_\${Date.now()}.json\`,o.click()}var last=0;scrapeThreads();`;
+      
+      const igScript = `async function scrapeIG(loops=100){for(let i=0;i<loops;i++){const b=[...document.querySelectorAll("ul button, div[role='button']")].find(b=>b.textContent.includes("更多留言")||b.textContent.includes("more comments")||b.querySelector("svg[aria-label*='載入']"));if(b){b.click();await new Promise(r=>setTimeout(r,1200))}else{window.scrollBy(0,1000);await new Promise(r=>setTimeout(r,800))}}const items=[];document.querySelectorAll("ul > div > li, ul > li[role='menuitem']").forEach(li=>{const u=li.querySelector("h3 a, a[role='link']"),t=li.querySelector("span[dir='auto'], div[dir='auto']");if(u&&t){const un=u.textContent.trim().replace("@",""),txt=t.textContent.trim();items.push({username:un,text:txt,mentions:[...new Set([...txt.matchAll(/@([\\w._]+)/g)].map(m=>m[1].toLowerCase()).filter(m=>m!==un.toLowerCase()))]})}});const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=\`ig_\${Date.now()}.json\`;a.click()}scrapeIG();`;
+
+      const code = type === 'threads' ? threadsScript : igScript;
+      const ta = document.createElement("textarea");
+      ta.value = code;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showToast(`已複製 ${type === 'threads' ? 'Threads' : 'Instagram'} 抓取腳本！`);
+    };
+  </script>
+</body>
+</html>
