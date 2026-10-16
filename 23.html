@@ -49,7 +49,7 @@
     <div class="sidebar">
         <div>
             <h2>夢想音樂節 - 3D 坐席視野</h2>
-            <div class="subtitle">坐姿視角模擬・大螢幕轉播・偶像舞台</div>
+            <div class="subtitle">全坐席視角模擬・大螢幕轉播・偶像舞台</div>
         </div>
 
         <div class="box">
@@ -68,7 +68,7 @@
             </div>
             <div class="input-group">
                 <label>選擇排法模式</label>
-                <select id="layoutSelect">
+                <select id="layoutSelect" onchange="buildSeatCloud()">
                     <option value="decreasing">遞減排法</option>
                     <option value="10x10">10x10 排法</option>
                 </select>
@@ -76,8 +76,8 @@
             <div class="input-group">
                 <label>查詢座位</label>
                 <div>
-                    第 <input type="number" id="rowA" value="5" min="1" max="43"> 排
-                    <input type="number" id="seatA" value="54" min="1" max="108"> 號
+                    第 <input type="number" id="rowA" value="8" min="1" max="43"> 排
+                    <input type="number" id="seatA" value="51" min="1" max="108"> 號
                 </div>
             </div>
             <button class="action-btn" onclick="applySeatView()">切換至該座位 3D 視角</button>
@@ -108,14 +108,14 @@
 <script>
     const totalRows = 43;
     let scene, camera, renderer, controls;
-    let seatMeshGroup = new THREE.Group();
+    let seatInstancedMesh = null;
     let frontAudienceMesh = null;
     let stageTarget = new THREE.Vector3(0, 3.4, -2); // 視線焦點置於舞台 Idol 身高處
 
     let idolGroup; // 偶像模型
     let sideScreenTexture, screenCanvas, screenCtx; // 兩側大螢幕動態貼圖
 
-    // 計算 3D 空間座標 (解決與舞台重疊問題)
+    // 計算 3D 空間座標
     function calculateCoordinates(r, s, layout) {
         let v_aisles = layout === 'decreasing' ? [15, 29, 42, 66, 79, 93] : [4, 14, 24, 34, 44, 64, 74, 84, 94, 104];
         
@@ -184,8 +184,7 @@
         controls.dampingFactor = 0.08;
         controls.target.copy(stageTarget);
 
-        // 燈光設置
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
         buildEnvironment();
@@ -197,14 +196,13 @@
 
     // 建立舞台、兩側大螢幕貼圖與 Idol
     function buildEnvironment() {
-        // 地板
         const floorGeo = new THREE.PlaneGeometry(140, 140);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // 主舞台 (中心在 z = -5，前緣剛好停在 z = 0，不與前排干涉)
+        // 主舞台 (中心在 z = -5，前緣停在 z = 0，不與前排干涉)
         const stageMat = new THREE.MeshStandardMaterial({ color: 0x1c1c24, roughness: 0.4 });
         const mainStage = new THREE.Mesh(new THREE.BoxGeometry(24, 2, 10), stageMat);
         mainStage.position.set(0, 1, -5);
@@ -291,28 +289,53 @@
         scene.add(idolSpot);
     }
 
-    // 座位點雲呈現
+    // 座位全數渲染：每一排 (含偶數排第8排)、每一號都完整繪製
     function buildSeatCloud() {
-        scene.remove(seatMeshGroup);
-        seatMeshGroup = new THREE.Group();
+        if (seatInstancedMesh) {
+            scene.remove(seatInstancedMesh);
+        }
 
-        const seatGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
-        const defaultMat = new THREE.MeshBasicMaterial({ color: 0x444455 });
-        const newZoneMat = new THREE.MeshBasicMaterial({ color: 0xff99bb });
+        const layout = document.getElementById('layoutSelect').value;
+        const seatGeo = new THREE.BoxGeometry(0.42, 0.35, 0.42);
+        const seatMat = new THREE.MeshStandardMaterial({ 
+            color: 0x555566, 
+            roughness: 0.6 
+        });
 
-        for (let r = 1; r <= totalRows; r += 2) {
-            for (let s = 15; s <= 94; s += 2) {
-                const coords = calculateCoordinates(r, s, 'decreasing');
-                const isNewZone = (s <= 20 || s >= 89);
-                const mesh = new THREE.Mesh(seatGeo, isNewZone ? newZoneMat : defaultMat);
-                mesh.position.set(coords.x, coords.y + 0.2, coords.z);
-                seatMeshGroup.add(mesh);
+        // 1~43 排，15~94 號全部繪製
+        const rowCount = totalRows;
+        const seatCountPerRow = (94 - 15 + 1);
+        const totalCount = rowCount * seatCountPerRow;
+
+        seatInstancedMesh = new THREE.InstancedMesh(seatGeo, seatMat, totalCount);
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+
+        let idx = 0;
+        for (let r = 1; r <= totalRows; r++) {
+            for (let s = 15; s <= 94; s++) {
+                const coords = calculateCoordinates(r, s, layout);
+                dummy.position.set(coords.x, coords.y + 0.18, coords.z);
+                dummy.updateMatrix();
+                seatInstancedMesh.setMatrixAt(idx, dummy.matrix);
+
+                // 加開區域 (粉色)，其餘一般座位 (灰藍色)
+                if ((s >= 15 && s <= 20) || (s >= 89 && s <= 94)) {
+                    color.setHex(0xffb3ba);
+                } else {
+                    color.setHex(r <= 24 ? 0x6e768e : 0x4d5366);
+                }
+                seatInstancedMesh.setColorAt(idx, color);
+                idx++;
             }
         }
-        scene.add(seatMeshGroup);
+
+        seatInstancedMesh.instanceMatrix.needsUpdate = true;
+        if (seatInstancedMesh.instanceColor) seatInstancedMesh.instanceColor.needsUpdate = true;
+        scene.add(seatInstancedMesh);
     }
 
-    // 前排觀眾模型 (坐姿遮擋模擬)
+    // 前排觀眾模型：柔和淺色衣著與膚色
     function updateFrontAudience(r, s, layout) {
         if (frontAudienceMesh) {
             scene.remove(frontAudienceMesh);
@@ -323,18 +346,25 @@
             const frontCoords = calculateCoordinates(r - 1, s, layout);
             frontAudienceMesh = new THREE.Group();
 
+            // 1. 頭部 (溫暖膚色 + 淺棕髮色)
             const headGeo = new THREE.SphereGeometry(0.13, 16, 16);
-            const bodyGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.65, 16);
-            const personMat = new THREE.MeshStandardMaterial({ color: 0x1f1f2e, roughness: 0.9 });
-
-            const head = new THREE.Mesh(headGeo, personMat);
-            // 坐姿前排人頭頂約 1.25m
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdfd0, roughness: 0.4 });
+            const head = new THREE.Mesh(headGeo, skinMat);
             head.position.set(frontCoords.x, frontCoords.y + 1.22, frontCoords.z);
 
-            const body = new THREE.Mesh(bodyGeo, personMat);
+            const hairGeo = new THREE.SphereGeometry(0.14, 16, 16, 0, Math.PI * 2, 0, Math.PI / 1.7);
+            const hairMat = new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.6 });
+            const hair = new THREE.Mesh(hairGeo, hairMat);
+            hair.position.set(frontCoords.x, frontCoords.y + 1.25, frontCoords.z);
+
+            // 2. 身體衣服 (明亮米白/淺灰色)
+            const bodyGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.65, 16);
+            const clothMat = new THREE.MeshStandardMaterial({ color: 0xdcdde1, roughness: 0.5 });
+            const body = new THREE.Mesh(bodyGeo, clothMat);
             body.position.set(frontCoords.x, frontCoords.y + 0.78, frontCoords.z);
 
             frontAudienceMesh.add(head);
+            frontAudienceMesh.add(hair);
             frontAudienceMesh.add(body);
             scene.add(frontAudienceMesh);
         }
@@ -344,20 +374,17 @@
     function renderLiveScreen(time) {
         if (!screenCtx) return;
 
-        // 背景
         const gradient = screenCtx.createLinearGradient(0, 0, 0, 512);
         gradient.addColorStop(0, '#0c001f');
         gradient.addColorStop(1, '#330055');
         screenCtx.fillStyle = gradient;
         screenCtx.fillRect(0, 0, 512, 512);
 
-        // 聚光光暈
         screenCtx.beginPath();
         screenCtx.arc(256, 260, 160 + Math.sin(time * 3) * 10, 0, Math.PI * 2);
         screenCtx.fillStyle = 'rgba(255, 42, 109, 0.3)';
         screenCtx.fill();
 
-        // 偶像特寫：臉與頭髮
         screenCtx.fillStyle = '#ffdfd0';
         screenCtx.beginPath();
         screenCtx.arc(256, 210 + Math.sin(time * 2) * 4, 60, 0, Math.PI * 2);
@@ -368,7 +395,6 @@
         screenCtx.arc(256, 195 + Math.sin(time * 2) * 4, 66, Math.PI, Math.PI * 2);
         screenCtx.fill();
 
-        // 舞台裝
         screenCtx.fillStyle = '#ff2a6d';
         screenCtx.beginPath();
         screenCtx.moveTo(170, 512);
@@ -378,7 +404,6 @@
         screenCtx.closePath();
         screenCtx.fill();
 
-        // LIVE 轉播標誌
         screenCtx.fillStyle = '#ff0033';
         screenCtx.beginPath();
         screenCtx.arc(42, 45, 10, 0, Math.PI * 2);
@@ -388,7 +413,6 @@
         screenCtx.font = 'bold 24px Arial';
         screenCtx.fillText('LIVE  STAGE CAM', 62, 52);
 
-        // 掃描線
         screenCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
         screenCtx.lineWidth = 2;
         for (let i = 0; i < 512; i += 8) {
@@ -408,7 +432,7 @@
         const heightCm = parseFloat(document.getElementById('viewerHeight').value) || 165;
         const posture = document.getElementById('postureSelect').value;
 
-        // 精準坐姿眼高計算 (椅高 0.42m + 坐姿眼高)
+        // 坐姿眼高計算 (椅高 0.42m + 坐姿眼高)
         let eyeHeight = posture === 'sit' ? (0.42 + (heightCm * 0.45 / 100)) : (heightCm * 0.93 / 100);
 
         if (r < 1 || r > totalRows || s < 1 || s > 108) {
@@ -420,12 +444,12 @@
         const coords = calculateCoordinates(r, s, layout);
         const stats = evaluateSeat(r, s, coords);
 
-        // 相機移至座位坐姿眼高
+        // 相機移至坐姿眼高位置
         camera.position.set(coords.x, coords.y + eyeHeight, coords.z);
         controls.target.copy(stageTarget);
         controls.update();
 
-        // 更新前排坐姿觀眾
+        // 更新前排觀眾
         updateFrontAudience(r, s, layout);
 
         document.getElementById('hudInfo').innerHTML = `
@@ -476,13 +500,11 @@
 
         const time = currentTime * 0.001;
 
-        // 偶像微動
         if (idolGroup) {
             idolGroup.position.y = 2 + Math.sin(time * 2.5) * 0.02;
             idolGroup.rotation.y = Math.sin(time * 1.2) * 0.12;
         }
 
-        // 繪製轉播大螢幕
         renderLiveScreen(time);
 
         controls.update();
