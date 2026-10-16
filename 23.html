@@ -2,46 +2,83 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>OPEN! 夢想音樂節 - 3D 坐席真實視野</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #0c0f1d; color: #fff; margin: 0; padding: 0; overflow-x: hidden; user-select: none; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #0c0f1d; 
+            color: #fff; 
+            margin: 0; 
+            padding: 0; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
         
         .app-container { display: flex; height: 100vh; width: 100vw; }
         .sidebar { width: 380px; background: #13172b; padding: 20px; overflow-y: auto; border-right: 1px solid #242b4d; z-index: 10; display: flex; flex-direction: column; gap: 15px; }
-        .viewport-3d { flex: 1; position: relative; background: #060810; cursor: grab; }
+        
+        /* 3D 視口：徹底鎖死手機手勢滾動，專注於視角旋轉 */
+        .viewport-3d { 
+            flex: 1; 
+            position: relative; 
+            background: #060810; 
+            touch-action: none; /* 禁止原生捲動與縮放手勢 */
+            overscroll-behavior: none;
+            cursor: grab;
+        }
         .viewport-3d:active { cursor: grabbing; }
-        #canvas3d { width: 100%; height: 100%; display: block; }
+        #canvas3d { width: 100%; height: 100%; display: block; touch-action: none; }
 
-        .hud-overlay { position: absolute; top: 15px; left: 15px; background: rgba(13, 17, 36, 0.85); padding: 12px 18px; border-radius: 8px; font-size: 13px; line-height: 1.5; pointer-events: none; border: 1px solid #2d3766; }
-        .fov-toggle { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 8px; }
-        .fov-btn { background: rgba(20, 26, 54, 0.9); color: #fff; border: 1px solid #414f8c; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        /* 左上角精簡極窄透明字卡 (點擊可收起) */
+        .hud-overlay { 
+            position: absolute; 
+            top: 12px; 
+            left: 12px; 
+            background: rgba(13, 17, 36, 0.65); 
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-size: 11px; 
+            line-height: 1.4; 
+            color: #e0e6ed;
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 80%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .hud-overlay:active { transform: scale(0.96); }
+
+        .fov-toggle { position: absolute; bottom: 15px; right: 15px; display: flex; gap: 6px; }
+        .fov-btn { background: rgba(20, 26, 54, 0.85); color: #fff; border: 1px solid #414f8c; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); }
         .fov-btn:hover { background: #2f3a6e; }
 
-        h2 { margin: 0; font-size: 20px; color: #fff; }
-        .subtitle { font-size: 13px; color: #ff3377; margin-top: 5px; font-weight: bold; }
-        .box { background: #1a203a; padding: 15px; border-radius: 8px; border: 1px solid #28325c; }
-        .input-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        h2 { margin: 0; font-size: 18px; color: #fff; }
+        .subtitle { font-size: 12px; color: #ff3377; margin-top: 4px; font-weight: bold; }
+        .box { background: #1a203a; padding: 14px; border-radius: 8px; border: 1px solid #28325c; }
+        .input-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
         input[type="number"], select { padding: 8px; border-radius: 4px; border: 1px solid #3d4c8a; background: #0f1324; color: #fff; font-size: 14px; }
-        input[type="number"] { width: 75px; text-align: center; }
+        input[type="number"] { width: 70px; text-align: center; }
         button.action-btn { width: 100%; padding: 12px; background: linear-gradient(90deg, #d83d89, #6c2d8e); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; }
         button.action-btn:hover { opacity: 0.9; }
 
-        .result-card { padding: 12px; border-radius: 6px; background: #1c233f; margin-top: 10px; border-left: 4px solid #d83d89; }
-        .score-display { font-size: 20px; font-weight: bold; margin: 6px 0; }
-        .final-rank { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #fff; margin-bottom: 8px; }
-        .advice-item { display: block; font-size: 12px; color: #ccd3eb; margin-top: 4px; }
+        .result-card { padding: 12px; border-radius: 6px; background: #1c233f; margin-top: 8px; border-left: 4px solid #d83d89; }
+        .score-display { font-size: 18px; font-weight: bold; margin: 4px 0; }
+        .final-rank { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+        .advice-item { display: block; font-size: 12px; color: #ccd3eb; margin-top: 3px; }
 
         .color-legend { display: flex; gap: 10px; font-size: 11px; margin-top: 5px; }
         .legend-badge { display: flex; align-items: center; gap: 4px; }
         .dot { width: 10px; height: 10px; border-radius: 2px; }
 
         @media (max-width: 900px) {
-            .app-container { flex-direction: column-reverse; height: auto; }
-            .sidebar { width: 100%; height: auto; }
-            .viewport-3d { height: 60vh; }
+            .app-container { flex-direction: column-reverse; height: 100vh; overflow: hidden; }
+            .sidebar { width: 100%; flex: 1; overflow-y: auto; height: auto; }
+            .viewport-3d { height: 50vh; flex: none; }
         }
     </style>
 </head>
@@ -92,25 +129,21 @@
 
         <div id="resultBox" class="result-card" style="display: none;"></div>
         
-        <div style="font-size: 12px; color: #8792b8; line-height: 1.5;">
-            💡 實景還原重點：<br>
-            • <b>第一人稱轉頭</b>：鎖死在椅子上，滑鼠/手指拖曳直接模擬轉動脖子環視。<br>
-            • <b>左右各一橫向大螢幕 (16:9)</b>：主舞台兩側各掛一面大橫幕與 Truss 鋼架。<br>
-            • <b>黑色折疊椅與鐵馬護欄</b>：前方視線完全貼齊實拍照高度。<br>
-            • <b>白色音控棚 (FOH)</b>：位於搖滾區中後方交界處。
+        <div style="font-size: 11px; color: #8792b8; line-height: 1.5;">
+            💡 提示：在上方 3D 畫面滑動即可順暢環顧四周，已阻斷網頁下滑干擾；點擊左上角迷你標籤可收起/展開詳細資訊。
         </div>
     </div>
 
+    <!-- 3D 畫面與極簡 HUD -->
     <div class="viewport-3d" id="viewport">
         <canvas id="canvas3d"></canvas>
-        <div class="hud-overlay" id="hudInfo">
-            目前視角：全場俯瞰預覽<br>
-            請於左側輸入座位排號並點擊切換
+        <div class="hud-overlay" id="hudInfo" onclick="toggleHudDetails()">
+            <span id="hudBrief">📍 全場俯瞰預覽</span>
         </div>
         <div class="fov-toggle">
-            <button class="fov-btn" onclick="setFOV(65)">1× 主鏡頭</button>
-            <button class="fov-btn" onclick="setFOV(95)">0.5× 超廣角</button>
-            <button class="fov-btn" onclick="resetToOverview()">全場俯瞰</button>
+            <button class="fov-btn" onclick="setFOV(65)">1×</button>
+            <button class="fov-btn" onclick="setFOV(95)">0.5×</button>
+            <button class="fov-btn" onclick="resetToOverview()">全場</button>
         </div>
     </div>
 </div>
@@ -126,23 +159,28 @@
     let sideScreenTexture, screenCanvas, screenCtx;
     let mainCenterScreenTexture, mainScreenCanvas, mainScreenCtx;
 
-    // 第一人稱轉頭視角控制變數 (FPS Look Controls)
+    // 第一人稱轉頭視角變數 (平滑化插值)
     let isUserLooking = false;
     let isOverview = true;
-    let yaw = 0;   // 水平旋轉角度 (左右)
-    let pitch = 0; // 垂直旋轉角度 (上下仰角)
+    let targetYaw = 0;
+    let targetPitch = 0;
+    let currentYaw = 0;
+    let currentPitch = 0;
     let previousPointerX = 0;
     let previousPointerY = 0;
     let cameraFixedPos = new THREE.Vector3(0, 22, 52);
 
+    // 字卡精簡切換狀態
+    let isHudExpanded = false;
+    let currentHudData = { title: "全場俯瞰預覽", dist: "-", angle: "-", eye: "-" };
+
     function calculateCoordinates(r, s, layout) {
         let v_aisles = layout === 'decreasing' ? [15, 29, 42, 66, 79, 93] : [4, 14, 24, 34, 44, 64, 74, 84, 94, 104];
         
-        // Z 軸深度：折疊椅前後排距約 0.85m，第 1 排距離護欄與舞台約 5.0m
         let z = 5.0 + (r - 1) * 0.85;
         if (r > 10) z += 1.6;
         if (r > 20) z += 1.6;
-        if (r > 24) z += 3.2; // 超級搖滾與搖滾區交界大走道
+        if (r > 24) z += 3.2;
         if (r > 34) z += 1.6;
 
         let x = 0;
@@ -155,7 +193,6 @@
             x += 0.28;
         }
 
-        // 戶外廣場完全平地
         let y = 0.0;
         return { x, y, z };
     }
@@ -197,7 +234,7 @@
 
         renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
@@ -205,42 +242,40 @@
         buildEnvironment();
         buildSeatCloud();
 
-        setupFirstPersonControls();
+        setupSmoothTouchControls();
 
         window.addEventListener('resize', onWindowResize);
         animate(0);
     }
 
-    // 建立實景舞台：平行一字台、左右各一橫螢幕、白色音控棚、折疊椅與護欄
     function buildEnvironment() {
-        // 地面 (深灰柏油廣場)
+        // 地面
         const floorGeo = new THREE.PlaneGeometry(160, 160);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x12141c, roughness: 0.95 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // 1. 平行一字主舞台 (台高 2.0m，前緣在 z = 0)
+        // 主舞台 (前緣停在 z = 0)
         const stageMat = new THREE.MeshStandardMaterial({ color: 0x11131a, roughness: 0.7 });
         const flatStage = new THREE.Mesh(new THREE.BoxGeometry(50, 2.0, 8), stageMat);
         flatStage.position.set(0, 1.0, -4);
         scene.add(flatStage);
 
-        // 舞台前沿斜切黑布遮罩 (對齊第四張照片)
         const apronGeo = new THREE.BoxGeometry(50.2, 0.6, 0.4);
         const apronMat = new THREE.MeshStandardMaterial({ color: 0x07080c, roughness: 0.9 });
         const apron = new THREE.Mesh(apronGeo, apronMat);
         apron.position.set(0, 1.8, 0.1);
         scene.add(apron);
 
-        // 2. 舞台前緣鐵馬護欄 (高 1.2m，架在第一排前方 z = 3.6m 處)
+        // 鐵馬護欄
         const barrierGeo = new THREE.BoxGeometry(46, 1.2, 0.05);
         const barrierMat = new THREE.MeshStandardMaterial({ color: 0x18181c, metalness: 0.8, roughness: 0.4 });
         const barrier = new THREE.Mesh(barrierGeo, barrierMat);
         barrier.position.set(0, 0.6, 3.6);
         scene.add(barrier);
 
-        // 3. 舞台前沿監聽音箱與低音箱 (高度疊加到 2.45m)
+        // 前沿音箱
         const monitorGeo = new THREE.BoxGeometry(1.2, 0.45, 0.7);
         const monitorMat = new THREE.MeshStandardMaterial({ color: 0x050608 });
         for (let x = -20; x <= 20; x += 3.4) {
@@ -249,9 +284,8 @@
             scene.add(mon);
         }
 
-        // 4. 中央斜頂主頂棚
+        // 頂棚
         const trussMat = new THREE.MeshStandardMaterial({ color: 0x484f6d, metalness: 0.7, roughness: 0.3 });
-        
         const roofShape = new THREE.Shape();
         roofShape.moveTo(-10.5, 0);   
         roofShape.lineTo(0, 2.6);     
@@ -263,7 +297,7 @@
         roof.position.set(0, 10.5, -8.2);
         scene.add(roof);
 
-        // 頂棚大橫眉 (OPEN! DREAM WORLD 看板)
+        // 頂棚橫看板
         const headerBannerGeo = new THREE.PlaneGeometry(18, 1.6);
         const headerCanvas = document.createElement('canvas');
         headerCanvas.width = 1024;
@@ -288,7 +322,7 @@
             scene.add(p);
         });
 
-        // 5. 舞台正後方中央主視覺 LED 巨幕 (17m x 7.5m)
+        // 舞台正後方中央主視覺 LED 巨幕
         mainScreenCanvas = document.createElement('canvas');
         mainScreenCanvas.width = 1024;
         mainScreenCanvas.height = 512;
@@ -299,7 +333,7 @@
         mainScreen.position.set(0, 6.2, -7.8);
         scene.add(mainScreen);
 
-        // 6. 懸吊線性陣列喇叭 (Line Array)
+        // 懸吊線性音響
         const lineArrayGeo = new THREE.BoxGeometry(0.7, 0.35, 0.5);
         const paMat = new THREE.MeshStandardMaterial({ color: 0x08080a });
         [-10.5, 10.5].forEach(xPos => {
@@ -314,34 +348,32 @@
             scene.add(paGroup);
         });
 
-        // 7. 【精確修改：左右兩側各只有一面「橫向 (16:9)」轉播大螢幕】
+        // 左右各一橫向 16:9 轉播大螢幕
         screenCanvas = document.createElement('canvas');
         screenCanvas.width = 640;
-        screenCanvas.height = 360; // 16:9 橫向比例
+        screenCanvas.height = 360;
         screenCtx = screenCanvas.getContext('2d');
         sideScreenTexture = new THREE.CanvasTexture(screenCanvas);
 
         const liveScreenMat = new THREE.MeshBasicMaterial({ map: sideScreenTexture });
-        const sideScreenGeo = new THREE.PlaneGeometry(9.6, 5.4); // 橫向大螢幕 (寬9.6m, 高5.4m)
+        const sideScreenGeo = new THREE.PlaneGeometry(9.6, 5.4);
 
-        // 左側單面大螢幕 (橫向)
         const screenLeft = new THREE.Mesh(sideScreenGeo, liveScreenMat);
         screenLeft.position.set(-17, 6.2, -3.5);
         scene.add(screenLeft);
 
-        // 右側單面大螢幕 (橫向)
         const screenRight = new THREE.Mesh(sideScreenGeo, liveScreenMat);
         screenRight.position.set(17, 6.2, -3.5);
         scene.add(screenRight);
 
-        // 8. 【新增：中後方白色音控棚 (FOH 帳篷)】(依第二張照片置於第 24 排橫走道後方中央)
+        // 白色音控棚 (FOH)
         const tentGeo = new THREE.BoxGeometry(6.5, 3.2, 4.0);
         const tentMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.5 });
         const fohTent = new THREE.Mesh(tentGeo, tentMat);
-        fohTent.position.set(0, 1.6, 28); // 位於第 24 排後方中軸線
+        fohTent.position.set(0, 1.6, 28);
         scene.add(fohTent);
 
-        // 9. 偶像 (Idol) 站立於 y = 2.0 舞台面上
+        // 偶像 Idol
         idolGroup = new THREE.Group();
         const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.8, 16), 
             new THREE.MeshStandardMaterial({ color: 0xd83d89, roughness: 0.3 }));
@@ -374,7 +406,6 @@
         scene.add(idolSpot);
     }
 
-    // 全座位渲染 (每一張黑色折疊椅與管架)
     function buildSeatCloud() {
         if (seatInstancedMesh) scene.remove(seatInstancedMesh);
 
@@ -391,12 +422,10 @@
         for (let r = 1; r <= totalRows; r++) {
             for (let s = 15; s <= 94; s++) {
                 const coords = calculateCoordinates(r, s, layout);
-                // 折疊椅椅面離地 0.42m
                 dummy.position.set(coords.x, coords.y + 0.21, coords.z);
                 dummy.updateMatrix();
                 seatInstancedMesh.setMatrixAt(idx, dummy.matrix);
 
-                // 官方配色標記
                 if (r <= 24) {
                     color.setHex(0xd83d89);
                 } else {
@@ -412,7 +441,6 @@
         scene.add(seatInstancedMesh);
     }
 
-    // 前方觀眾群邏輯 (第 1 排前方無人，後排渲染真實人海)
     function updateFrontAudience(currentR, currentS, layout) {
         if (audienceHeadMesh) scene.remove(audienceHeadMesh);
         if (audienceBodyMesh) scene.remove(audienceBodyMesh);
@@ -434,7 +462,7 @@
         audienceHeadMesh = new THREE.InstancedMesh(headGeo, hairMat, totalAudience);
 
         const bodyGeo = new THREE.CylinderGeometry(0.14, 0.17, 0.48, 12);
-        const clothMat = new THREE.MeshStandardMaterial({ color: 0x2c2d38, roughness: 0.6 }); // 現場多數穿深色/T恤
+        const clothMat = new THREE.MeshStandardMaterial({ color: 0x2c2d38, roughness: 0.6 });
         audienceBodyMesh = new THREE.InstancedMesh(bodyGeo, clothMat, totalAudience);
 
         const dummyHead = new THREE.Object3D();
@@ -444,7 +472,6 @@
         for (let r = 1; r < currentR; r++) {
             for (let s = minS; s <= maxS; s++) {
                 const coords = calculateCoordinates(r, s, layout);
-                // 坐姿高度 (椅面 0.42m + 頭部約 0.96m)
                 dummyHead.position.set(coords.x, coords.y + 0.96, coords.z);
                 dummyHead.updateMatrix();
                 audienceHeadMesh.setMatrixAt(idx, dummyHead.matrix);
@@ -464,7 +491,6 @@
         scene.add(audienceBodyMesh);
     }
 
-    // 繪製正中央主視覺螢幕與左右橫向轉播螢幕
     function renderScreens(time) {
         if (mainScreenCtx) {
             const grad = mainScreenCtx.createLinearGradient(0, 0, 1024, 512);
@@ -502,7 +528,6 @@
             mainCenterScreenTexture.needsUpdate = true;
         }
 
-        // 橫向 16:9 轉播大螢幕
         if (screenCtx) {
             const gradient = screenCtx.createLinearGradient(0, 0, 640, 360);
             gradient.addColorStop(0, '#0a0020');
@@ -516,7 +541,6 @@
             screenCtx.fillStyle = 'rgba(216, 61, 137, 0.28)';
             screenCtx.fill();
 
-            // 偶像上半身特寫
             screenCtx.fillStyle = '#ffdfd0';
             screenCtx.beginPath();
             screenCtx.arc(320, 150 + Math.sin(time * 2) * 4, 45, 0, Math.PI * 2);
@@ -551,69 +575,96 @@
     }
 
     // =========================================================================
-    // 第一人稱「原地轉頭」控制器核心 (鎖死在椅子上，只旋轉脖子)
+    // 【核心觸控鎖定與平滑轉頭 (徹底解決滑動網頁問題)】
     // =========================================================================
-    function setupFirstPersonControls() {
+    function setupSmoothTouchControls() {
         const dom = document.getElementById('viewport');
 
-        function onPointerDown(e) {
+        function onPointerStart(e) {
             isUserLooking = true;
-            previousPointerX = e.clientX || (e.touches && e.touches[0].clientX);
-            previousPointerY = e.clientY || (e.touches && e.touches[0].clientY);
+            const touch = e.touches ? e.touches[0] : e;
+            previousPointerX = touch.clientX;
+            previousPointerY = touch.clientY;
         }
 
         function onPointerMove(e) {
             if (!isUserLooking) return;
 
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            // 關鍵：阻止瀏覽器將垂直拖曳轉化為捲動網頁
+            if (e.cancelable) e.preventDefault();
 
-            const deltaX = clientX - previousPointerX;
-            const deltaY = clientY - previousPointerY;
+            const touch = e.touches ? e.touches[0] : e;
+            const deltaX = touch.clientX - previousPointerX;
+            const deltaY = touch.clientY - previousPointerY;
 
-            previousPointerX = clientX;
-            previousPointerY = clientY;
+            previousPointerX = touch.clientX;
+            previousPointerY = touch.clientY;
 
-            // 轉頭靈敏度
-            yaw -= deltaX * 0.0035;
-            pitch -= deltaY * 0.0035;
+            // 累加目標角度 (支援滑順插值)
+            targetYaw -= deltaX * 0.0045;
+            targetPitch -= deltaY * 0.0045;
 
-            // 限制仰角：不能往下看穿地底，也不能後仰折斷脖子
-            pitch = Math.max(-Math.PI / 4, Math.min(Math.PI / 3, pitch));
-
-            updateCameraDirection();
+            // 限制仰角
+            targetPitch = Math.max(-Math.PI / 4.5, Math.min(Math.PI / 2.8, targetPitch));
         }
 
-        function onPointerUp() {
+        function onPointerEnd() {
             isUserLooking = false;
         }
 
-        dom.addEventListener('mousedown', onPointerDown);
-        window.addEventListener('mousemove', onPointerMove);
-        window.addEventListener('mouseup', onPointerUp);
+        // 滑鼠事件
+        dom.addEventListener('mousedown', onPointerStart);
+        window.addEventListener('mousemove', onPointerMove, { passive: false });
+        window.addEventListener('mouseup', onPointerEnd);
 
-        dom.addEventListener('touchstart', onPointerDown, { passive: true });
-        window.addEventListener('touchmove', onPointerMove, { passive: true });
-        window.addEventListener('touchend', onPointerUp);
+        // 手機觸控事件 (passive: false 允許 e.preventDefault 完全生效)
+        dom.addEventListener('touchstart', onPointerStart, { passive: false });
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerEnd);
+        window.addEventListener('touchcancel', onPointerEnd);
     }
 
-    function updateCameraDirection() {
+    // 每一幀進行平滑內插轉動
+    function updateCameraFrame() {
         if (isOverview) {
             camera.position.set(0, 22, 52);
             camera.lookAt(0, 3.5, -2);
             return;
         }
 
-        // 相機座標焊死在椅面眼高，絕對不浮起
+        // 柔和插值阻尼 (Lerp)
+        currentYaw += (targetYaw - currentYaw) * 0.25;
+        currentPitch += (targetPitch - currentPitch) * 0.25;
+
         camera.position.copy(cameraFixedPos);
 
-        // 依據轉頭仰角與水平角計算朝向向量
         const lookTarget = new THREE.Vector3(
-            cameraFixedPos.x + Math.sin(yaw) * Math.cos(pitch),
-            cameraFixedPos.y + Math.sin(pitch),
-            cameraFixedPos.z - Math.cos(yaw) * Math.cos(pitch)
+            cameraFixedPos.x + Math.sin(currentYaw) * Math.cos(currentPitch),
+            cameraFixedPos.y + Math.sin(currentPitch),
+            cameraFixedPos.z - Math.cos(currentYaw) * Math.cos(currentPitch)
         );
         camera.lookAt(lookTarget);
+    }
+
+    // 字卡精簡切換
+    function updateHudDisplay() {
+        const hud = document.getElementById('hudInfo');
+        if (!isHudExpanded) {
+            // 極簡模式：單行膠囊
+            hud.innerHTML = `<span>📍 ${currentHudData.title}</span> <span style="opacity:0.6;font-size:10px;">(點擊詳細)</span>`;
+        } else {
+            // 展開模式
+            hud.innerHTML = `
+                <b>${currentHudData.title}</b><br>
+                距舞台：<b>${currentHudData.dist}</b> ｜ 偏角：<b>${currentHudData.angle}</b><br>
+                眼高：<b>${currentHudData.eye}</b> <span style="opacity:0.5;font-size:10px;">(點擊收起)</span>
+            `;
+        }
+    }
+
+    function toggleHudDetails() {
+        isHudExpanded = !isHudExpanded;
+        updateHudDisplay();
     }
 
     function applySeatView() {
@@ -622,8 +673,6 @@
         const heightCm = parseFloat(document.getElementById('viewerHeight').value) || 165;
         const posture = document.getElementById('postureSelect').value;
 
-        // 真實低坐姿眼高：椅高 0.42m + 坐姿上半身眼高 (身高的 42%)
-        // 165cm 成年人坐下眼高精確在 1.11m
         let eyeHeight = posture === 'sit' ? (0.42 + (heightCm * 0.42 / 100)) : (heightCm * 0.92 / 100);
 
         if (r < 1 || r > totalRows || s < 1 || s > 108) {
@@ -638,23 +687,27 @@
         isOverview = false;
         cameraFixedPos.set(coords.x, coords.y + eyeHeight, coords.z);
 
-        // 計算初始朝向舞台中央偶像的偏角與仰角
         const dx = 0 - coords.x;
         const dz = (-1.8) - coords.z;
-        const dy = 3.6 - (coords.y + eyeHeight); // 仰望舞台 Idol
+        const dy = 3.6 - (coords.y + eyeHeight);
 
-        yaw = -Math.atan2(dx, -dz);
-        pitch = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+        targetYaw = -Math.atan2(dx, -dz);
+        targetPitch = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+        currentYaw = targetYaw;
+        currentPitch = targetPitch;
 
-        updateCameraDirection();
         updateFrontAudience(r, s, layout);
 
-        document.getElementById('hudInfo').innerHTML = `
-            <b>第 ${r} 排 ${s} 號</b> (${stats.zoneName})<br>
-            舞台距離：${stats.distance.toFixed(1)} m ｜ 視角偏角：${stats.angle.toFixed(1)}°<br>
-            離地眼高：${(coords.y + eyeHeight).toFixed(2)} m ${r === 1 ? '<b>(第一排無遮擋)</b>' : `(前方有 ${r - 1} 排觀眾)`}
-        `;
+        // 更新精簡字卡資料
+        currentHudData = {
+            title: `第 ${r} 排 ${s} 號 · ${stats.zoneName.split(' ')[0]}`,
+            dist: `${stats.distance.toFixed(1)}m`,
+            angle: `${stats.angle.toFixed(1)}°`,
+            eye: `${(coords.y + eyeHeight).toFixed(2)}m`
+        };
+        updateHudDisplay();
 
+        // 側欄分析卡片
         const resultBox = document.getElementById('resultBox');
         resultBox.style.display = 'block';
         resultBox.style.borderLeftColor = stats.zoneColor;
@@ -682,9 +735,9 @@
         isOverview = true;
         camera.fov = 65;
         camera.updateProjectionMatrix();
-        camera.position.set(0, 22, 52);
-        camera.lookAt(0, 3.5, -2);
-        document.getElementById('hudInfo').innerHTML = `目前視角：全場俯瞰預覽`;
+
+        currentHudData = { title: "全場俯瞰預覽", dist: "-", angle: "-", eye: "-" };
+        updateHudDisplay();
     }
 
     function onWindowResize() {
@@ -705,6 +758,8 @@
         }
 
         renderScreens(time);
+        updateCameraFrame();
+
         renderer.render(scene, camera);
     }
 
