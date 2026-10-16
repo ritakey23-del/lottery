@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>夢想音樂節 - 3D 坐席視野模擬器</title>
-    <!-- 引入 Three.js 與 OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
@@ -45,11 +44,10 @@
 <body>
 
 <div class="app-container">
-    <!-- 控制側邊欄 -->
     <div class="sidebar">
         <div>
             <h2>夢想音樂節 - 3D 坐席視野</h2>
-            <div class="subtitle">全坐席視角模擬・大螢幕轉播・偶像舞台</div>
+            <div class="subtitle">真實觀眾人海・器材全佈景・大螢幕轉播</div>
         </div>
 
         <div class="box">
@@ -67,10 +65,10 @@
                 </div>
             </div>
             <div class="input-group">
-                <label>選擇排法模式</label>
+                <label>排法模式</label>
                 <select id="layoutSelect" onchange="buildSeatCloud()">
+                    <option value="10x10" selected>10x10 排法 (有中走道)</option>
                     <option value="decreasing">遞減排法</option>
-                    <option value="10x10">10x10 排法</option>
                 </select>
             </div>
             <div class="input-group">
@@ -80,17 +78,20 @@
                     <input type="number" id="seatA" value="51" min="1" max="108"> 號
                 </div>
             </div>
-            <button class="action-btn" onclick="applySeatView()">切換至該座位 3D 視角</button>
+
+            <button class="action-btn" onclick="applySeatView()">進入該座位視野</button>
         </div>
 
         <div id="resultBox" class="result-card" style="display: none;"></div>
         
         <div style="font-size: 12px; color: #777; line-height: 1.5;">
-            💡 操作提示：點擊右側畫面<b>拖曳旋轉</b>角度，<b>滾輪</b>可放大縮小。切換後會顯示前排坐姿觀眾與大螢幕視野。
+            💡 視野特點：
+            1. 坐在第 1 排時眼前完全無觀眾。<br>
+            2. 坐在後排時，會完整顯示<b>所有前方排數</b>的觀眾席人海與後腦勺。<br>
+            3. 滑鼠拖曳可自由旋轉視角環視全場。
         </div>
     </div>
 
-    <!-- 3D 畫布與 HUD -->
     <div class="viewport-3d" id="viewport">
         <canvas id="canvas3d"></canvas>
         <div class="hud-overlay" id="hudInfo">
@@ -109,37 +110,35 @@
     const totalRows = 43;
     let scene, camera, renderer, controls;
     let seatInstancedMesh = null;
-    let frontAudienceMesh = null;
-    let stageTarget = new THREE.Vector3(0, 3.4, -2); // 視線焦點置於舞台 Idol 身高處
+    let audienceHeadMesh = null;
+    let audienceBodyMesh = null;
+    let stageTarget = new THREE.Vector3(0, 3.2, -2); // 偶像視線焦點
 
-    let idolGroup; // 偶像模型
-    let sideScreenTexture, screenCanvas, screenCtx; // 兩側大螢幕動態貼圖
+    let idolGroup; 
+    let sideScreenTexture, screenCanvas, screenCtx;
 
-    // 計算 3D 空間座標
+    // 空間座標系統
     function calculateCoordinates(r, s, layout) {
         let v_aisles = layout === 'decreasing' ? [15, 29, 42, 66, 79, 93] : [4, 14, 24, 34, 44, 64, 74, 84, 94, 104];
         
-        // Z 軸深度：第 1 排距離舞台邊緣保留 5 公尺安全走道
-        let z = 5 + (r - 1) * 0.9;
-        if (r > 10) z += 2;
-        if (r > 20) z += 2;
-        if (r > 24) z += 3;
-        if (r > 34) z += 2;
+        // Z 軸深度：第 1 排距離舞台 5.2 米
+        let z = 5.2 + (r - 1) * 0.9;
+        if (r > 10) z += 1.8;
+        if (r > 20) z += 1.8;
+        if (r > 24) z += 3.0; // 兩區交界橫走道
+        if (r > 34) z += 1.8;
 
-        // X 軸水平位移
         let x = 0;
         if (s <= 54) {
-            for (let i = s; i < 54; i++) { x += 0.5; if (v_aisles.includes(i)) x += 1.0; }
-            x += 0.25;
+            for (let i = s; i < 54; i++) { x += 0.52; if (v_aisles.includes(i)) x += 1.2; }
+            x += 0.3;
             x = -x;
         } else {
-            for (let i = 55; i < s; i++) { x += 0.5; if (v_aisles.includes(i)) x += 1.0; }
-            x += 0.25;
+            for (let i = 55; i < s; i++) { x += 0.52; if (v_aisles.includes(i)) x += 1.2; }
+            x += 0.3;
         }
 
-        // 看台階梯高度 (Y 軸)
-        let y = (r - 1) * 0.08;
-
+        let y = (r - 1) * 0.08; // 階梯坡度
         return { x, y, z };
     }
 
@@ -163,17 +162,16 @@
         return { distance, angle, final100, finalRank, rankColor };
     }
 
-    // 初始化 Three.js 場景
     function init3D() {
         const container = document.getElementById('viewport');
         const canvas = document.getElementById('canvas3d');
 
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a0f);
-        scene.fog = new THREE.FogExp2(0x0a0a0f, 0.012);
+        scene.fog = new THREE.FogExp2(0x0a0a0f, 0.010);
 
-        camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 200);
-        camera.position.set(0, 25, 55);
+        camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.1, 200);
+        camera.position.set(0, 22, 52);
 
         renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
@@ -184,7 +182,7 @@
         controls.dampingFactor = 0.08;
         controls.target.copy(stageTarget);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
         scene.add(ambientLight);
 
         buildEnvironment();
@@ -194,183 +192,163 @@
         animate(0);
     }
 
-// 替換 buildEnvironment()
-function buildEnvironment() {
-    // 1. 地板
-    const floorGeo = new THREE.PlaneGeometry(160, 160);
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 0.85 });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
+    // 建置平行舞台與所有專業器材
+    function buildEnvironment() {
+        // 地面
+        const floorGeo = new THREE.PlaneGeometry(160, 160);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x141418, roughness: 0.9 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
 
-    // ==========================================
-    // 2. 一字型平行寬舞台 (橫向貫穿 50 米，無前凸伸展台)
-    // ==========================================
-    const stageMat = new THREE.MeshStandardMaterial({ color: 0x1a1a20, roughness: 0.4 });
-    // 主橫向台：寬 52m, 高 1.8m, 深 8m (中心在 z = -4，前緣剛好齊平 z = 0)
-    const flatStage = new THREE.Mesh(new THREE.BoxGeometry(52, 1.8, 8), stageMat);
-    flatStage.position.set(0, 0.9, -4);
-    scene.add(flatStage);
+        // 1. 平行一字主舞台 (無凸出延伸台，前沿在 z = 0)
+        const stageMat = new THREE.MeshStandardMaterial({ color: 0x1f1f24, roughness: 0.5 });
+        const flatStage = new THREE.Mesh(new THREE.BoxGeometry(50, 1.8, 8), stageMat);
+        flatStage.position.set(0, 0.9, -4);
+        scene.add(flatStage);
 
-    // 舞台前方安全圍欄隔板 (黑色邊緣)
-    const barrierMat = new THREE.MeshBasicMaterial({ color: 0x08080a });
-    const frontLip = new THREE.Mesh(new THREE.BoxGeometry(52.2, 0.2, 0.2), barrierMat);
-    frontLip.position.set(0, 1.9, 0.05);
-    scene.add(frontLip);
-
-    // ==========================================
-    // 3. 中央主頂棚 (鋼架立柱 + 三角斜屋頂)
-    // ==========================================
-    const trussMat = new THREE.MeshStandardMaterial({ color: 0x444450, metalness: 0.6, roughness: 0.3 });
-    
-    // 主頂棚 (三角柱體斜頂)
-    const roofGeo = new THREE.CylinderGeometry(13, 13, 10, 3, 1, false);
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x1e1e24, roughness: 0.6 });
-    const roof = new THREE.Mesh(roofGeo, roofMat);
-    roof.rotation.x = Math.PI / 2;
-    roof.rotation.z = Math.PI; // 頂端向上
-    roof.scale.set(1, 0.45, 1);
-    roof.position.set(0, 12, -4);
-    scene.add(roof);
-
-    // 中央四根大鋼架支柱 (Truss Pillars)
-    const pGeo = new THREE.BoxGeometry(0.8, 10, 0.8);
-    const pPositions = [[-9.5, -0.5], [9.5, -0.5], [-9.5, -7.5], [9.5, -7.5]];
-    pPositions.forEach(pos => {
-        const p = new THREE.Mesh(pGeo, trussMat);
-        p.position.set(pos[0], 6.8, pos[1]);
-        scene.add(p);
-    });
-
-    // 舞台頂棚下方的橫幅招牌 (橫眉看板)
-    const bannerMat = new THREE.MeshBasicMaterial({ color: 0x0088cc });
-    const headerBanner = new THREE.Mesh(new THREE.PlaneGeometry(18, 1.4), bannerMat);
-    headerBanner.position.set(0, 9.8, -0.1);
-    scene.add(headerBanner);
-
-    // ==========================================
-    // 4. 背面主 LED 螢幕
-    // ==========================================
-    const bgScreenMat = new THREE.MeshBasicMaterial({ color: 0x220044 });
-    const mainScreen = new THREE.Mesh(new THREE.PlaneGeometry(18, 7.5), bgScreenMat);
-    mainScreen.position.set(0, 5.6, -7.8);
-    scene.add(mainScreen);
-
-    // ==========================================
-    // 5. 兩側「正面平行直立」巨型 LIVE 大螢幕 (完全平行於 X 軸)
-    // ==========================================
-    screenCanvas = document.createElement('canvas');
-    screenCanvas.width = 384;
-    screenCanvas.height = 640; // 直立比例 9:16
-    screenCtx = screenCanvas.getContext('2d');
-    sideScreenTexture = new THREE.CanvasTexture(screenCanvas);
-
-    const liveScreenMat = new THREE.MeshBasicMaterial({ map: sideScreenTexture });
-    const sideScreenGeo = new THREE.PlaneGeometry(6, 9.5); // 直立巨幕
-
-    // 左外側、左內側大螢幕 (朝正面觀眾，不轉角度)
-    const screenLeftOuter = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-    screenLeftOuter.position.set(-20, 6.8, -3.5);
-    scene.add(screenLeftOuter);
-
-    const screenLeftInner = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-    screenLeftInner.position.set(-13, 6.8, -3.5);
-    scene.add(screenLeftInner);
-
-    // 右內側、右外側大螢幕
-    const screenRightInner = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-    screenRightInner.position.set(13, 6.8, -3.5);
-    scene.add(screenRightInner);
-
-    const screenRightOuter = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-    screenRightOuter.position.set(20, 6.8, -3.5);
-    scene.add(screenRightOuter);
-
-    // 兩側大螢幕背後滿版 Truss 鋼架背景牆
-    const trussBackGeo = new THREE.BoxGeometry(16, 11, 0.4);
-    const trussBackMat = new THREE.MeshStandardMaterial({ color: 0x2d2f38, roughness: 0.8 });
-    const leftBackdrop = new THREE.Mesh(trussBackGeo, trussBackMat);
-    leftBackdrop.position.set(-16.5, 7, -4.5);
-    scene.add(leftBackdrop);
-
-    const rightBackdrop = new THREE.Mesh(trussBackGeo, trussBackMat);
-    rightBackdrop.position.set(16.5, 7, -4.5);
-    scene.add(rightBackdrop);
-
-    // ==========================================
-    // 6. 偶像 Idol (站在中央主台前緣)
-    // ==========================================
-    idolGroup = new THREE.Group();
-
-    // 亮粉色外套
-    const bodyGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.8, 16);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff2a6d, roughness: 0.3 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 1.3;
-    idolGroup.add(body);
-
-    // 膚色頭部
-    const headGeo = new THREE.SphereGeometry(0.16, 16, 16);
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdfd0 });
-    const head = new THREE.Mesh(headGeo, skinMat);
-    head.position.y = 1.85;
-    idolGroup.add(head);
-
-    // 髮型
-    const hairGeo = new THREE.SphereGeometry(0.18, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-    const hairMat = new THREE.MeshStandardMaterial({ color: 0x1f140e });
-    const hair = new THREE.Mesh(hairGeo, hairMat);
-    hair.position.y = 1.92;
-    idolGroup.add(hair);
-
-    // 麥克風
-    const micGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.18, 8);
-    const micMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-    const mic = new THREE.Mesh(micGeo, micMat);
-    mic.position.set(0.15, 1.7, 0.2);
-    mic.rotation.x = Math.PI / 4;
-    idolGroup.add(mic);
-
-    // 褲子
-    const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.9, 12);
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    const legL = new THREE.Mesh(legGeo, legMat);
-    legL.position.set(-0.12, 0.45, 0);
-    const legR = new THREE.Mesh(legGeo, legMat);
-    legR.position.set(0.12, 0.45, 0);
-    idolGroup.add(legL);
-    idolGroup.add(legR);
-
-    // 偶像站立在主舞台前端 (台面高度 y = 1.8)
-    idolGroup.position.set(0, 1.8, -1.8);
-    scene.add(idolGroup);
-
-    // 舞台頂部射燈聚焦偶像
-    const idolSpot = new THREE.SpotLight(0xffffff, 4, 30, Math.PI / 5, 0.25);
-    idolSpot.position.set(0, 11, 2);
-    idolSpot.target = idolGroup;
-    scene.add(idolSpot);
-}
-
-
-    // 座位全數渲染：每一排 (含偶數排第8排)、每一號都完整繪製
-    function buildSeatCloud() {
-        if (seatInstancedMesh) {
-            scene.remove(seatInstancedMesh);
+        // 2. 舞台前沿低音喇叭組 (Subwoofer Array)
+        const subGeo = new THREE.BoxGeometry(1.2, 0.7, 0.8);
+        const subMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.8 });
+        for (let x = -20; x <= 20; x += 3.2) {
+            const sub = new THREE.Mesh(subGeo, subMat);
+            sub.position.set(x, 2.15, -0.4);
+            scene.add(sub);
         }
+
+        // 3. 舞台前緣鐵馬護欄 (Crowd Barrier) - 位於第 1 排前方的走道區
+        const barrierGeo = new THREE.BoxGeometry(48, 1.1, 0.05);
+        const barrierMat = new THREE.MeshStandardMaterial({ color: 0x333338, metalness: 0.8 });
+        const barrier = new THREE.Mesh(barrierGeo, barrierMat);
+        barrier.position.set(0, 0.55, 3.2);
+        scene.add(barrier);
+
+        // 4. 中央斜頂主頂棚 (鋼架 Truss + 斜頂帆布)
+        const trussMat = new THREE.MeshStandardMaterial({ color: 0x555562, metalness: 0.7, roughness: 0.3 });
+        const roofGeo = new THREE.CylinderGeometry(13, 13, 10, 3, 1, false);
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.6 });
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.rotation.x = Math.PI / 2;
+        roof.rotation.z = Math.PI;
+        roof.scale.set(1, 0.45, 1);
+        roof.position.set(0, 12.2, -4);
+        scene.add(roof);
+
+        // 鋼架支柱
+        const pGeo = new THREE.BoxGeometry(0.8, 11, 0.8);
+        [[-9.5, -0.5], [9.5, -0.5], [-9.5, -7.5], [9.5, -7.5]].forEach(pos => {
+            const p = new THREE.Mesh(pGeo, trussMat);
+            p.position.set(pos[0], 6.5, pos[1]);
+            scene.add(p);
+        });
+
+        // 5. 兩側鋼架懸吊 J 型線性陣列喇叭 (Line Array PA Towers)
+        const lineArrayGeo = new THREE.BoxGeometry(0.7, 0.35, 0.5);
+        const paMat = new THREE.MeshStandardMaterial({ color: 0x08080a });
+        [-10.5, 10.5].forEach(xPos => {
+            const paGroup = new THREE.Group();
+            for (let i = 0; i < 9; i++) {
+                const box = new THREE.Mesh(lineArrayGeo, paMat);
+                box.position.set(0, -i * 0.42, Math.pow(i * 0.08, 1.4) * 0.3);
+                box.rotation.x = (i * 0.04);
+                paGroup.add(box);
+            }
+            paGroup.position.set(xPos, 9.5, -0.2);
+            scene.add(paGroup);
+        });
+
+        // 6. 頂部面光燈橫樑 (Lighting Truss Rig)
+        const lightBarGeo = new THREE.CylinderGeometry(0.12, 0.12, 18);
+        const lightBar = new THREE.Mesh(lightBarGeo, trussMat);
+        lightBar.rotation.z = Math.PI / 2;
+        lightBar.position.set(0, 9.2, -0.2);
+        scene.add(lightBar);
+
+        const spotLightGeo = new THREE.SphereGeometry(0.18, 8, 8);
+        const lightBulbMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        for (let lx = -8; lx <= 8; lx += 1.6) {
+            const bulb = new THREE.Mesh(spotLightGeo, lightBulbMat);
+            bulb.position.set(lx, 9.0, -0.2);
+            scene.add(bulb);
+        }
+
+        // 7. 兩側巨型直立轉播大螢幕
+        screenCanvas = document.createElement('canvas');
+        screenCanvas.width = 384;
+        screenCanvas.height = 640;
+        screenCtx = screenCanvas.getContext('2d');
+        sideScreenTexture = new THREE.CanvasTexture(screenCanvas);
+
+        const liveScreenMat = new THREE.MeshBasicMaterial({ map: sideScreenTexture });
+        const sideScreenGeo = new THREE.PlaneGeometry(6, 9.5);
+
+        const screenL1 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
+        screenL1.position.set(-20, 6.8, -3.5);
+        scene.add(screenL1);
+
+        const screenL2 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
+        screenL2.position.set(-13.5, 6.8, -3.5);
+        scene.add(screenL2);
+
+        const screenR1 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
+        screenR1.position.set(13.5, 6.8, -3.5);
+        scene.add(screenR1);
+
+        const screenR2 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
+        screenR2.position.set(20, 6.8, -3.5);
+        scene.add(screenR2);
+
+        // 背景主 LED
+        const bgScreenMat = new THREE.MeshBasicMaterial({ color: 0x1f003a });
+        const mainScreen = new THREE.Mesh(new THREE.PlaneGeometry(18, 7.5), bgScreenMat);
+        mainScreen.position.set(0, 5.6, -7.8);
+        scene.add(mainScreen);
+
+        // 8. 偶像 (Idol)
+        idolGroup = new THREE.Group();
+        const bodyGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.8, 16);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff2a6d, roughness: 0.3 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 1.3;
+        idolGroup.add(body);
+
+        const headGeo = new THREE.SphereGeometry(0.16, 16, 16);
+        const head = new THREE.Mesh(headGeo, new THREE.MeshStandardMaterial({ color: 0xffdfd0 }));
+        head.position.y = 1.85;
+        idolGroup.add(head);
+
+        const hairGeo = new THREE.SphereGeometry(0.18, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const hair = new THREE.Mesh(hairGeo, new THREE.MeshStandardMaterial({ color: 0x1f140e }));
+        hair.position.y = 1.92;
+        idolGroup.add(hair);
+
+        const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.9, 12);
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const legL = new THREE.Mesh(legGeo, legMat);
+        legL.position.set(-0.12, 0.45, 0);
+        const legR = new THREE.Mesh(legGeo, legMat);
+        legR.position.set(0.12, 0.45, 0);
+        idolGroup.add(legL);
+        idolGroup.add(legR);
+
+        idolGroup.position.set(0, 1.8, -1.8);
+        scene.add(idolGroup);
+
+        const idolSpot = new THREE.SpotLight(0xffffff, 4, 30, Math.PI / 5, 0.25);
+        idolSpot.position.set(0, 11, 2);
+        idolSpot.target = idolGroup;
+        scene.add(idolSpot);
+    }
+
+    // 全座位渲染 (每一排每一號都有椅子)
+    function buildSeatCloud() {
+        if (seatInstancedMesh) scene.remove(seatInstancedMesh);
 
         const layout = document.getElementById('layoutSelect').value;
         const seatGeo = new THREE.BoxGeometry(0.42, 0.35, 0.42);
-        const seatMat = new THREE.MeshStandardMaterial({ 
-            color: 0x555566, 
-            roughness: 0.6 
-        });
+        const seatMat = new THREE.MeshStandardMaterial({ color: 0x555566, roughness: 0.6 });
 
-        // 1~43 排，15~94 號全部繪製
-        const rowCount = totalRows;
-        const seatCountPerRow = (94 - 15 + 1);
-        const totalCount = rowCount * seatCountPerRow;
-
+        const totalCount = totalRows * (94 - 15 + 1);
         seatInstancedMesh = new THREE.InstancedMesh(seatGeo, seatMat, totalCount);
         const dummy = new THREE.Object3D();
         const color = new THREE.Color();
@@ -383,7 +361,6 @@ function buildEnvironment() {
                 dummy.updateMatrix();
                 seatInstancedMesh.setMatrixAt(idx, dummy.matrix);
 
-                // 加開區域 (粉色)，其餘一般座位 (灰藍色)
                 if ((s >= 15 && s <= 20) || (s >= 89 && s <= 94)) {
                     color.setHex(0xffb3ba);
                 } else {
@@ -399,103 +376,124 @@ function buildEnvironment() {
         scene.add(seatInstancedMesh);
     }
 
-    // 前排觀眾模型：柔和淺色衣著與膚色
-    function updateFrontAudience(r, s, layout) {
-        if (frontAudienceMesh) {
-            scene.remove(frontAudienceMesh);
-            frontAudienceMesh = null;
+    // 前方觀眾群邏輯：
+    // 若坐在第 1 排，前方無人影。
+    // 若坐在第 r 排 (r > 1)，則完整生成從第 1 排一路到第 r - 1 排的所有觀眾人海！
+    function updateFrontAudience(currentR, currentS, layout) {
+        if (audienceHeadMesh) scene.remove(audienceHeadMesh);
+        if (audienceBodyMesh) scene.remove(audienceBodyMesh);
+        audienceHeadMesh = null;
+        audienceBodyMesh = null;
+
+        // 第 1 排前面是舞台與走道，眼前完全沒有任何人影
+        if (currentR <= 1) {
+            return;
         }
 
-        if (r > 1) {
-            const frontCoords = calculateCoordinates(r - 1, s, layout);
-            frontAudienceMesh = new THREE.Group();
+        // 計算前方視野內的所有觀眾數量
+        // 前方排數為 1 ~ currentR - 1
+        const rowsInFront = currentR - 1;
+        // 為了極致流暢度，視角主要涵蓋當前座位左右兩側各 12 個座位的視野椎體
+        const minS = Math.max(15, currentS - 14);
+        const maxS = Math.min(94, currentS + 14);
+        const seatsPerSpan = (maxS - minS + 1);
+        const totalAudience = rowsInFront * seatsPerSpan;
 
-            // 1. 頭部 (溫暖膚色 + 淺棕髮色)
-            const headGeo = new THREE.SphereGeometry(0.13, 16, 16);
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdfd0, roughness: 0.4 });
-            const head = new THREE.Mesh(headGeo, skinMat);
-            head.position.set(frontCoords.x, frontCoords.y + 1.22, frontCoords.z);
+        if (totalAudience <= 0) return;
 
-            const hairGeo = new THREE.SphereGeometry(0.14, 16, 16, 0, Math.PI * 2, 0, Math.PI / 1.7);
-            const hairMat = new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.6 });
-            const hair = new THREE.Mesh(hairGeo, hairMat);
-            hair.position.set(frontCoords.x, frontCoords.y + 1.25, frontCoords.z);
+        // 使用 InstancedMesh 高效能渲染上千位前方觀眾
+        const headGeo = new THREE.SphereGeometry(0.08, 12, 12);
+        const hairMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.7 });
+        audienceHeadMesh = new THREE.InstancedMesh(headGeo, hairMat, totalAudience);
 
-            // 2. 身體衣服 (明亮米白/淺灰色)
-            const bodyGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.65, 16);
-            const clothMat = new THREE.MeshStandardMaterial({ color: 0xdcdde1, roughness: 0.5 });
-            const body = new THREE.Mesh(bodyGeo, clothMat);
-            body.position.set(frontCoords.x, frontCoords.y + 0.78, frontCoords.z);
+        const bodyGeo = new THREE.CylinderGeometry(0.14, 0.17, 0.48, 12);
+        const clothMat = new THREE.MeshStandardMaterial({ color: 0xd2d5dd, roughness: 0.6 });
+        audienceBodyMesh = new THREE.InstancedMesh(bodyGeo, clothMat, totalAudience);
 
-            frontAudienceMesh.add(head);
-            frontAudienceMesh.add(hair);
-            frontAudienceMesh.add(body);
-            scene.add(frontAudienceMesh);
+        const dummyHead = new THREE.Object3D();
+        const dummyBody = new THREE.Object3D();
+
+        let idx = 0;
+        for (let r = 1; r < currentR; r++) {
+            for (let s = minS; s <= maxS; s++) {
+                const coords = calculateCoordinates(r, s, layout);
+                
+                // 坐姿觀眾人頭高度 (約椅高 0.42m + 上半身頭部位置)
+                dummyHead.position.set(coords.x, coords.y + 0.98, coords.z);
+                dummyHead.updateMatrix();
+                audienceHeadMesh.setMatrixAt(idx, dummyHead.matrix);
+
+                dummyBody.position.set(coords.x, coords.y + 0.68, coords.z);
+                dummyBody.updateMatrix();
+                audienceBodyMesh.setMatrixAt(idx, dummyBody.matrix);
+
+                idx++;
+            }
         }
+
+        audienceHeadMesh.instanceMatrix.needsUpdate = true;
+        audienceBodyMesh.instanceMatrix.needsUpdate = true;
+
+        scene.add(audienceHeadMesh);
+        scene.add(audienceBodyMesh);
     }
 
-function renderLiveScreen(time) {
-    if (!screenCtx) return;
+    // 繪製直立螢幕轉播
+    function renderLiveScreen(time) {
+        if (!screenCtx) return;
 
-    // 1. 直立螢幕背景
-    const gradient = screenCtx.createLinearGradient(0, 0, 0, 640);
-    gradient.addColorStop(0, '#0a0020');
-    gradient.addColorStop(0.5, '#2e0050');
-    gradient.addColorStop(1, '#050014');
-    screenCtx.fillStyle = gradient;
-    screenCtx.fillRect(0, 0, 384, 640);
+        const gradient = screenCtx.createLinearGradient(0, 0, 0, 640);
+        gradient.addColorStop(0, '#0a0020');
+        gradient.addColorStop(0.5, '#2e0050');
+        gradient.addColorStop(1, '#050014');
+        screenCtx.fillStyle = gradient;
+        screenCtx.fillRect(0, 0, 384, 640);
 
-    // 2. 聚光光環
-    screenCtx.beginPath();
-    screenCtx.arc(192, 300, 140 + Math.sin(time * 3) * 8, 0, Math.PI * 2);
-    screenCtx.fillStyle = 'rgba(255, 42, 109, 0.25)';
-    screenCtx.fill();
-
-    // 3. 直立偶像特寫 (上半身)
-    // 臉部
-    screenCtx.fillStyle = '#ffdfd0';
-    screenCtx.beginPath();
-    screenCtx.arc(192, 230 + Math.sin(time * 2) * 5, 55, 0, Math.PI * 2);
-    screenCtx.fill();
-
-    // 頭髮
-    screenCtx.fillStyle = '#1f140e';
-    screenCtx.beginPath();
-    screenCtx.arc(192, 215 + Math.sin(time * 2) * 5, 60, Math.PI, Math.PI * 2);
-    screenCtx.fill();
-
-    // 舞台打歌服裝
-    screenCtx.fillStyle = '#ff2a6d';
-    screenCtx.beginPath();
-    screenCtx.moveTo(110, 640);
-    screenCtx.lineTo(150, 290);
-    screenCtx.lineTo(234, 290);
-    screenCtx.lineTo(274, 640);
-    screenCtx.closePath();
-    screenCtx.fill();
-
-    // 4. LIVE 導播文字與紅點
-    screenCtx.fillStyle = '#ff0033';
-    screenCtx.beginPath();
-    screenCtx.arc(35, 45, 8, 0, Math.PI * 2);
-    screenCtx.fill();
-
-    screenCtx.fillStyle = '#ffffff';
-    screenCtx.font = 'bold 20px Arial';
-    screenCtx.fillText('LIVE  IMAG', 52, 52);
-
-    // 5. LED 晶格細線條
-    screenCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    screenCtx.lineWidth = 2;
-    for (let i = 0; i < 640; i += 8) {
         screenCtx.beginPath();
-        screenCtx.moveTo(0, i);
-        screenCtx.lineTo(384, i);
-        screenCtx.stroke();
-    }
+        screenCtx.arc(192, 300, 140 + Math.sin(time * 3) * 8, 0, Math.PI * 2);
+        screenCtx.fillStyle = 'rgba(255, 42, 109, 0.25)';
+        screenCtx.fill();
 
-    sideScreenTexture.needsUpdate = true;
-}
+        // 偶像特寫
+        screenCtx.fillStyle = '#ffdfd0';
+        screenCtx.beginPath();
+        screenCtx.arc(192, 230 + Math.sin(time * 2) * 5, 55, 0, Math.PI * 2);
+        screenCtx.fill();
+
+        screenCtx.fillStyle = '#1f140e';
+        screenCtx.beginPath();
+        screenCtx.arc(192, 215 + Math.sin(time * 2) * 5, 60, Math.PI, Math.PI * 2);
+        screenCtx.fill();
+
+        screenCtx.fillStyle = '#ff2a6d';
+        screenCtx.beginPath();
+        screenCtx.moveTo(110, 640);
+        screenCtx.lineTo(150, 290);
+        screenCtx.lineTo(234, 290);
+        screenCtx.lineTo(274, 640);
+        screenCtx.closePath();
+        screenCtx.fill();
+
+        screenCtx.fillStyle = '#ff0033';
+        screenCtx.beginPath();
+        screenCtx.arc(35, 45, 8, 0, Math.PI * 2);
+        screenCtx.fill();
+
+        screenCtx.fillStyle = '#ffffff';
+        screenCtx.font = 'bold 20px Arial';
+        screenCtx.fillText('LIVE  IMAG', 52, 52);
+
+        screenCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        screenCtx.lineWidth = 2;
+        for (let i = 0; i < 640; i += 8) {
+            screenCtx.beginPath();
+            screenCtx.moveTo(0, i);
+            screenCtx.lineTo(384, i);
+            screenCtx.stroke();
+        }
+
+        sideScreenTexture.needsUpdate = true;
+    }
 
     // 進入座位視角
     function applySeatView() {
@@ -504,7 +502,7 @@ function renderLiveScreen(time) {
         const heightCm = parseFloat(document.getElementById('viewerHeight').value) || 165;
         const posture = document.getElementById('postureSelect').value;
 
-        // 坐姿眼高計算 (椅高 0.42m + 坐姿眼高)
+        // 坐姿眼高計算
         let eyeHeight = posture === 'sit' ? (0.42 + (heightCm * 0.45 / 100)) : (heightCm * 0.93 / 100);
 
         if (r < 1 || r > totalRows || s < 1 || s > 108) {
@@ -516,18 +514,17 @@ function renderLiveScreen(time) {
         const coords = calculateCoordinates(r, s, layout);
         const stats = evaluateSeat(r, s, coords);
 
-        // 相機移至坐姿眼高位置
         camera.position.set(coords.x, coords.y + eyeHeight, coords.z);
         controls.target.copy(stageTarget);
         controls.update();
 
-        // 更新前排觀眾
+        // 完整更新前方所有排數的觀眾海
         updateFrontAudience(r, s, layout);
 
         document.getElementById('hudInfo').innerHTML = `
             <b>第 ${r} 排 ${s} 號</b> (${posture === 'sit' ? '坐姿' : '站姿'}視角)<br>
-            舞台直線距離：${stats.distance.toFixed(1)} m ｜ 視角偏角：${stats.angle.toFixed(1)}°<br>
-            離地眼高：${(coords.y + eyeHeight).toFixed(2)} m
+            舞台距離：${stats.distance.toFixed(1)} m ｜ 視角偏角：${stats.angle.toFixed(1)}°<br>
+            離地眼高：${(coords.y + eyeHeight).toFixed(2)} m ${r === 1 ? '<b>(第一排無遮擋)</b>' : `(前方有 ${r - 1} 排觀眾)`}
         `;
 
         const resultBox = document.getElementById('resultBox');
@@ -537,7 +534,7 @@ function renderLiveScreen(time) {
             <div class="score-display" style="color: #00BFFF;">視野分數：${stats.final100} 分</div>
             <span class="final-rank" style="background:${stats.rankColor};">${stats.finalRank}</span>
             <span class="advice-item">📐 舞台直線距離：<b>${stats.distance.toFixed(1)}m</b></span>
-            <span class="advice-item">🪑 視點高度：<b>${(coords.y + eyeHeight).toFixed(2)}m</b> (已計入椅面與前排坐姿)</span>
+            <span class="advice-item">🪑 視點高度：<b>${(coords.y + eyeHeight).toFixed(2)}m</b> (已計入椅面高度)</span>
             <span class="advice-item">👁️ 水平偏角：<b>${stats.angle.toFixed(1)}°</b></span>
         `;
     }
@@ -548,12 +545,13 @@ function renderLiveScreen(time) {
     }
 
     function resetToOverview() {
-        if (frontAudienceMesh) {
-            scene.remove(frontAudienceMesh);
-            frontAudienceMesh = null;
-        }
-        camera.position.set(0, 25, 55);
-        camera.fov = 60;
+        if (audienceHeadMesh) scene.remove(audienceHeadMesh);
+        if (audienceBodyMesh) scene.remove(audienceBodyMesh);
+        audienceHeadMesh = null;
+        audienceBodyMesh = null;
+
+        camera.position.set(0, 22, 52);
+        camera.fov = 65;
         camera.updateProjectionMatrix();
         controls.target.copy(stageTarget);
         controls.update();
@@ -573,7 +571,7 @@ function renderLiveScreen(time) {
         const time = currentTime * 0.001;
 
         if (idolGroup) {
-            idolGroup.position.y = 2 + Math.sin(time * 2.5) * 0.02;
+            idolGroup.position.y = 1.8 + Math.sin(time * 2.5) * 0.02;
             idolGroup.rotation.y = Math.sin(time * 1.2) * 0.12;
         }
 
