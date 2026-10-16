@@ -3,36 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>夢想音樂節 - 3D 坐席視野模擬器</title>
+    <title>OPEN! 夢想音樂節 - 3D 坐席視野模擬器</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 0; overflow-x: hidden; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #0c0f1d; color: #fff; margin: 0; padding: 0; overflow-x: hidden; }
         
         .app-container { display: flex; height: 100vh; width: 100vw; }
-        .sidebar { width: 400px; background: #1a1a1a; padding: 20px; overflow-y: auto; border-right: 1px solid #333; z-index: 10; display: flex; flex-direction: column; gap: 15px; }
-        .viewport-3d { flex: 1; position: relative; background: #050505; }
+        .sidebar { width: 400px; background: #13172b; padding: 20px; overflow-y: auto; border-right: 1px solid #242b4d; z-index: 10; display: flex; flex-direction: column; gap: 15px; }
+        .viewport-3d { flex: 1; position: relative; background: #060810; }
         #canvas3d { width: 100%; height: 100%; display: block; }
 
-        .hud-overlay { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.75); padding: 12px 18px; border-radius: 8px; font-size: 13px; line-height: 1.5; pointer-events: none; border: 1px solid #444; }
+        .hud-overlay { position: absolute; top: 15px; left: 15px; background: rgba(13, 17, 36, 0.82); padding: 12px 18px; border-radius: 8px; font-size: 13px; line-height: 1.5; pointer-events: none; border: 1px solid #2d3766; }
         .fov-toggle { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 8px; }
-        .fov-btn { background: rgba(30,30,30,0.85); color: #fff; border: 1px solid #555; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
-        .fov-btn:hover { background: #444; }
+        .fov-btn { background: rgba(20, 26, 54, 0.9); color: #fff; border: 1px solid #414f8c; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .fov-btn:hover { background: #2f3a6e; }
 
-        h2 { margin: 0; font-size: 20px; }
-        .subtitle { font-size: 13px; color: #f39c12; margin-top: 5px; }
-        .box { background: #242424; padding: 15px; border-radius: 8px; border: 1px solid #333; }
+        h2 { margin: 0; font-size: 20px; color: #fff; }
+        .subtitle { font-size: 13px; color: #ff3377; margin-top: 5px; font-weight: bold; }
+        .box { background: #1a203a; padding: 15px; border-radius: 8px; border: 1px solid #28325c; }
         .input-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        input[type="number"], select { padding: 8px; border-radius: 4px; border: 1px solid #555; background: #333; color: #fff; font-size: 14px; }
+        input[type="number"], select { padding: 8px; border-radius: 4px; border: 1px solid #3d4c8a; background: #0f1324; color: #fff; font-size: 14px; }
         input[type="number"] { width: 75px; text-align: center; }
-        button.action-btn { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; }
-        button.action-btn:hover { background: #45a049; }
+        button.action-btn { width: 100%; padding: 12px; background: linear-gradient(90deg, #d83d89, #6c2d8e); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; }
+        button.action-btn:hover { opacity: 0.9; }
 
-        .result-card { padding: 12px; border-radius: 6px; background: #2e2e2e; margin-top: 10px; border-left: 4px solid #00BFFF; }
+        .result-card { padding: 12px; border-radius: 6px; background: #1c233f; margin-top: 10px; border-left: 4px solid #d83d89; }
         .score-display { font-size: 20px; font-weight: bold; margin: 6px 0; }
-        .final-rank { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #000; margin-bottom: 8px; }
-        .advice-item { display: block; font-size: 12px; color: #ccc; margin-top: 4px; }
+        .final-rank { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #fff; margin-bottom: 8px; }
+        .advice-item { display: block; font-size: 12px; color: #ccd3eb; margin-top: 4px; }
+
+        /* 圖例說明樣式 */
+        .color-legend { display: flex; gap: 10px; font-size: 11px; margin-top: 5px; }
+        .legend-badge { display: flex; align-items: center; gap: 4px; }
+        .dot { width: 10px; height: 10px; border-radius: 2px; }
 
         @media (max-width: 900px) {
             .app-container { flex-direction: column-reverse; height: auto; }
@@ -46,8 +51,12 @@
 <div class="app-container">
     <div class="sidebar">
         <div>
-            <h2>夢想音樂節 - 3D 坐席視野</h2>
-            <div class="subtitle">實景舞台・正後方大螢幕・防穿地視角</div>
+            <h2>OPEN! 夢想音樂節</h2>
+            <div class="subtitle">12/4 - 12/5 高雄夢時代正對面廣場</div>
+            <div class="color-legend">
+                <div class="legend-badge"><span class="dot" style="background:#D83D89;"></span>超級搖滾區 (1~24排)</div>
+                <div class="legend-badge"><span class="dot" style="background:#6C2D8E;"></span>搖滾區 (25~43排)</div>
+            </div>
         </div>
 
         <div class="box">
@@ -84,11 +93,11 @@
 
         <div id="resultBox" class="result-card" style="display: none;"></div>
         
-        <div style="font-size: 12px; color: #777; line-height: 1.5;">
-            💡 視野特點：
-            1. 鏡頭已鎖定地平線限制，旋轉視角<b>絕不會穿透地底</b>。<br>
-            2. 舞台正中央後方完整還原實景巨型主視覺螢幕。<br>
-            3. 第 1 排前面空曠無人，後排會完整顯示前方整片坐席人海。
+        <div style="font-size: 12px; color: #8792b8; line-height: 1.5;">
+            💡 視野特點：<br>
+            • 全場座位精確套用官方桃紅（超級搖滾區）與深紫（搖滾區）色彩。<br>
+            • 視角已加入地平線防穿透限制，旋轉時絕不會透穿地底。<br>
+            • 第 1 排前方完全開闊，後排會真實呈現前方整片觀眾人海。
         </div>
     </div>
 
@@ -118,13 +127,14 @@
     let sideScreenTexture, screenCanvas, screenCtx;
     let mainCenterScreenTexture, mainScreenCanvas, mainScreenCtx;
 
+    // 空間座標系統
     function calculateCoordinates(r, s, layout) {
         let v_aisles = layout === 'decreasing' ? [15, 29, 42, 66, 79, 93] : [4, 14, 24, 34, 44, 64, 74, 84, 94, 104];
         
         let z = 5.2 + (r - 1) * 0.9;
         if (r > 10) z += 1.8;
         if (r > 20) z += 1.8;
-        if (r > 24) z += 3.0;
+        if (r > 24) z += 3.0; // 超級搖滾區與搖滾區交界大走道
         if (r > 34) z += 1.8;
 
         let x = 0;
@@ -153,12 +163,15 @@
         let final100 = Math.round((Math.min(scoreDist, scoreAngle) * 0.7) + (Math.max(scoreDist, scoreAngle) * 0.3));
         final100 = Math.min(100, Math.max(0, final100));
 
-        let finalRank = "S 級【優質視野】"; let rankColor = "#1E90FF";
-        if (final100 >= 85) { finalRank = "SSS 級【天選神位】"; rankColor = "#FFD700"; }
-        else if (final100 >= 75) { finalRank = "SS 級【完美沉浸】"; rankColor = "#FF8C00"; }
-        else if (final100 < 55) { finalRank = "B 級【輔助出動】"; rankColor = "#9370DB"; }
+        let zoneName = r <= 24 ? "超級搖滾區 ($3999)" : "搖滾區 ($2999)";
+        let zoneColor = r <= 24 ? "#D83D89" : "#6C2D8E";
 
-        return { distance, angle, final100, finalRank, rankColor };
+        let finalRank = "S 級【優質視野】";
+        if (final100 >= 85) finalRank = "SSS 級【天選神位】";
+        else if (final100 >= 75) finalRank = "SS 級【完美沉浸】";
+        else if (final100 < 55) finalRank = "B 級【輔助出動】";
+
+        return { distance, angle, final100, finalRank, zoneName, zoneColor };
     }
 
     function init3D() {
@@ -166,8 +179,8 @@
         const canvas = document.getElementById('canvas3d');
 
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0a0f);
-        scene.fog = new THREE.FogExp2(0x0a0a0f, 0.009);
+        scene.background = new THREE.Color(0x060814); // 呼應官方夜空深色調
+        scene.fog = new THREE.FogExp2(0x060814, 0.009);
 
         camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.1, 200);
         camera.position.set(0, 22, 52);
@@ -181,14 +194,12 @@
         controls.dampingFactor = 0.08;
         controls.target.copy(stageTarget);
 
-        // ==========================================
-        // 【關鍵防穿地設定】：限制視角不低於地平線
-        // ==========================================
-        controls.maxPolarAngle = Math.PI / 2 - 0.02; // 最大向下仰角只能平視，不能看穿地底
+        // 鎖定防穿透地底限制
+        controls.maxPolarAngle = Math.PI / 2 - 0.02; 
         controls.minDistance = 1;
         controls.maxDistance = 120;
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
         scene.add(ambientLight);
 
         buildEnvironment();
@@ -200,20 +211,20 @@
 
     function buildEnvironment() {
         const floorGeo = new THREE.PlaneGeometry(160, 160);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x141418, roughness: 0.9 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x101320, roughness: 0.9 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // 1. 平行一字主舞台 (無伸展台，前沿在 z = 0)
-        const stageMat = new THREE.MeshStandardMaterial({ color: 0x1f1f24, roughness: 0.5 });
+        // 1. 平行一字主舞台 (前緣停在 z = 0)
+        const stageMat = new THREE.MeshStandardMaterial({ color: 0x1a1d2d, roughness: 0.5 });
         const flatStage = new THREE.Mesh(new THREE.BoxGeometry(52, 1.8, 8), stageMat);
         flatStage.position.set(0, 0.9, -4);
         scene.add(flatStage);
 
-        // 2. 舞台前沿低音喇叭組 (Subwoofer Array)
+        // 2. 舞台前沿低音喇叭組
         const subGeo = new THREE.BoxGeometry(1.2, 0.7, 0.8);
-        const subMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.8 });
+        const subMat = new THREE.MeshStandardMaterial({ color: 0x080910, roughness: 0.8 });
         for (let x = -21; x <= 21; x += 3.2) {
             const sub = new THREE.Mesh(subGeo, subMat);
             sub.position.set(x, 2.15, -0.4);
@@ -222,15 +233,15 @@
 
         // 3. 舞台前緣鐵馬護欄
         const barrierGeo = new THREE.BoxGeometry(48, 1.1, 0.05);
-        const barrierMat = new THREE.MeshStandardMaterial({ color: 0x333338, metalness: 0.8 });
+        const barrierMat = new THREE.MeshStandardMaterial({ color: 0x3d435e, metalness: 0.8 });
         const barrier = new THREE.Mesh(barrierGeo, barrierMat);
         barrier.position.set(0, 0.55, 3.2);
         scene.add(barrier);
 
         // 4. 中央斜頂主頂棚
-        const trussMat = new THREE.MeshStandardMaterial({ color: 0x555562, metalness: 0.7, roughness: 0.3 });
+        const trussMat = new THREE.MeshStandardMaterial({ color: 0x545b7e, metalness: 0.7, roughness: 0.3 });
         const roofGeo = new THREE.CylinderGeometry(13, 13, 10, 3, 1, false);
-        const roofMat = new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.6 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x1c213a, roughness: 0.6 });
         const roof = new THREE.Mesh(roofGeo, roofMat);
         roof.rotation.x = Math.PI / 2;
         roof.rotation.z = Math.PI;
@@ -238,18 +249,18 @@
         roof.position.set(0, 12.2, -4);
         scene.add(roof);
 
-        // 頂棚大橫眉 (BEER ROCK FESTIVAL 橫條燈箱)
+        // 頂棚大橫眉 (OPEN! DREAM WORLD 專屬看板)
         const headerBannerGeo = new THREE.PlaneGeometry(18, 1.6);
         const headerCanvas = document.createElement('canvas');
         headerCanvas.width = 1024;
         headerCanvas.height = 128;
         const hCtx = headerCanvas.getContext('2d');
-        hCtx.fillStyle = '#111e38';
+        hCtx.fillStyle = '#0a0e24';
         hCtx.fillRect(0, 0, 1024, 128);
-        hCtx.fillStyle = '#f5c518';
-        hCtx.font = 'bold 58px Arial Black';
+        hCtx.fillStyle = '#ffffff';
+        hCtx.font = '900 52px "Arial Black", sans-serif';
         hCtx.textAlign = 'center';
-        hCtx.fillText('★ BEER ROCK FESTIVAL ★', 512, 85);
+        hCtx.fillText('OPEN!  DREAM WORLD', 512, 85);
         const headerTex = new THREE.CanvasTexture(headerCanvas);
         const headerBanner = new THREE.Mesh(headerBannerGeo, new THREE.MeshBasicMaterial({ map: headerTex }));
         headerBanner.position.set(0, 9.8, -0.2);
@@ -263,7 +274,7 @@
             scene.add(p);
         });
 
-        // 5. 【舞台正後方中央主視覺 LED 巨幕】 (依現場實景打造鮮明亮黃底色)
+        // 5. 【舞台正後方中央主視覺 LED 巨幕】 (OPEN! 夢想音樂節官方色調)
         mainScreenCanvas = document.createElement('canvas');
         mainScreenCanvas.width = 1024;
         mainScreenCanvas.height = 512;
@@ -275,7 +286,7 @@
         mainScreen.position.set(0, 5.6, -7.8);
         scene.add(mainScreen);
 
-        // 6. 兩側鋼架懸吊 J 型線性陣列喇叭 (Line Array)
+        // 6. 兩側線性陣列喇叭 (Line Array)
         const lineArrayGeo = new THREE.BoxGeometry(0.7, 0.35, 0.5);
         const paMat = new THREE.MeshStandardMaterial({ color: 0x08080a });
         [-10.5, 10.5].forEach(xPos => {
@@ -290,7 +301,7 @@
             scene.add(paGroup);
         });
 
-        // 7. 兩側巨型直立轉播大螢幕
+        // 7. 兩側直立轉播大螢幕
         screenCanvas = document.createElement('canvas');
         screenCanvas.width = 384;
         screenCanvas.height = 640;
@@ -316,10 +327,24 @@
         screenR2.position.set(20, 6.8, -3.5);
         scene.add(screenR2);
 
-        // 8. 偶像 (Idol)
+        // 8. 兩側一般站位區標記 (一般 A 區 / 一般 B 區 - 湛藍色區塊)
+        const standingZoneGeo = new THREE.PlaneGeometry(6, 32);
+        const standingZoneMat = new THREE.MeshStandardMaterial({ color: 0x0077b6, transparent: true, opacity: 0.35 });
+        
+        const standL = new THREE.Mesh(standingZoneGeo, standingZoneMat);
+        standL.rotation.x = -Math.PI / 2;
+        standL.position.set(-26, 0.05, 20);
+        scene.add(standL);
+
+        const standR = new THREE.Mesh(standingZoneGeo, standingZoneMat);
+        standR.rotation.x = -Math.PI / 2;
+        standR.position.set(26, 0.05, 20);
+        scene.add(standR);
+
+        // 9. 偶像 (Idol)
         idolGroup = new THREE.Group();
         const bodyGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.8, 16);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff2a6d, roughness: 0.3 });
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd83d89, roughness: 0.3 }); // 舞台亮桃粉打歌服
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         body.position.y = 1.3;
         idolGroup.add(body);
@@ -352,13 +377,13 @@
         scene.add(idolSpot);
     }
 
-    // 全座位渲染 (每一排每一號都有椅子)
+    // 全座位渲染 (依票面精確換色：1~24排桃紅，25~43排深紫)
     function buildSeatCloud() {
         if (seatInstancedMesh) scene.remove(seatInstancedMesh);
 
         const layout = document.getElementById('layoutSelect').value;
         const seatGeo = new THREE.BoxGeometry(0.42, 0.35, 0.42);
-        const seatMat = new THREE.MeshStandardMaterial({ color: 0x555566, roughness: 0.6 });
+        const seatMat = new THREE.MeshStandardMaterial({ roughness: 0.5 });
 
         const totalCount = totalRows * (94 - 15 + 1);
         seatInstancedMesh = new THREE.InstancedMesh(seatGeo, seatMat, totalCount);
@@ -373,10 +398,13 @@
                 dummy.updateMatrix();
                 seatInstancedMesh.setMatrixAt(idx, dummy.matrix);
 
-                if ((s >= 15 && s <= 20) || (s >= 89 && s <= 94)) {
-                    color.setHex(0xffb3ba);
+                // 官方視覺色配比：
+                if (r <= 24) {
+                    // 超級搖滾區 (桃粉色 #D83D89)
+                    color.setHex(0xd83d89);
                 } else {
-                    color.setHex(r <= 24 ? 0x6e768e : 0x4d5366);
+                    // 搖滾區 (深紫色 #6C2D8E)
+                    color.setHex(0x6c2d8e);
                 }
                 seatInstancedMesh.setColorAt(idx, color);
                 idx++;
@@ -388,7 +416,7 @@
         scene.add(seatInstancedMesh);
     }
 
-    // 前方觀眾群邏輯：第 1 排無人，後排完整渲染前方整片觀眾人海
+    // 前方觀眾群邏輯：第 1 排無人，後排渲染真實人海
     function updateFrontAudience(currentR, currentS, layout) {
         if (audienceHeadMesh) scene.remove(audienceHeadMesh);
         if (audienceBodyMesh) scene.remove(audienceBodyMesh);
@@ -410,7 +438,7 @@
         audienceHeadMesh = new THREE.InstancedMesh(headGeo, hairMat, totalAudience);
 
         const bodyGeo = new THREE.CylinderGeometry(0.14, 0.17, 0.48, 12);
-        const clothMat = new THREE.MeshStandardMaterial({ color: 0xd2d5dd, roughness: 0.6 });
+        const clothMat = new THREE.MeshStandardMaterial({ color: 0xc4cbe0, roughness: 0.6 });
         audienceBodyMesh = new THREE.InstancedMesh(bodyGeo, clothMat, totalAudience);
 
         const dummyHead = new THREE.Object3D();
@@ -439,40 +467,48 @@
         scene.add(audienceBodyMesh);
     }
 
-    // 即時繪製正後方中央主視覺螢幕與兩側轉播螢幕
+    // 繪製正後方 OPEN! 夢想音樂節專屬視覺螢幕
     function renderScreens(time) {
-        // 1. 【中央主視覺 LED 巨幕】 (還原現場鮮亮黃底與音樂節 Logo)
         if (mainScreenCtx) {
-            mainScreenCtx.fillStyle = '#f7b500'; // 現場招牌亮黃底色
+            // 深藍夜空主漸層底
+            const grad = mainScreenCtx.createLinearGradient(0, 0, 1024, 512);
+            grad.addColorStop(0, '#0a0d24');
+            grad.addColorStop(0.5, '#182046');
+            grad.addColorStop(1, '#0a0d24');
+            mainScreenCtx.fillStyle = grad;
             mainScreenCtx.fillRect(0, 0, 1024, 512);
 
-            // 雙翼主題標誌幾何輪廓
-            mainScreenCtx.fillStyle = '#1d3260';
+            // 雙色科技圓環裝飾 (桃紅 + 湖水藍)
+            mainScreenCtx.strokeStyle = '#d83d89';
+            mainScreenCtx.lineWidth = 6;
             mainScreenCtx.beginPath();
-            mainScreenCtx.arc(512, 180, 70, 0, Math.PI * 2);
-            mainScreenCtx.fill();
+            mainScreenCtx.arc(512, 160, 90 + Math.sin(time * 2) * 5, 0, Math.PI * 2);
+            mainScreenCtx.stroke();
 
+            mainScreenCtx.strokeStyle = '#00b4d8';
+            mainScreenCtx.lineWidth = 4;
+            mainScreenCtx.beginPath();
+            mainScreenCtx.arc(512, 160, 110 + Math.cos(time * 2) * 5, 0, Math.PI * 2);
+            mainScreenCtx.stroke();
+
+            // 標誌大字
             mainScreenCtx.fillStyle = '#ffffff';
-            mainScreenCtx.font = 'bold 36px Arial';
+            mainScreenCtx.font = '900 68px "Arial Black", sans-serif';
             mainScreenCtx.textAlign = 'center';
-            mainScreenCtx.fillText('BEER ROCK', 512, 192);
+            mainScreenCtx.fillText('OPEN!', 512, 185);
 
-            // 主標題文字
-            mainScreenCtx.fillStyle = '#1d3260';
-            mainScreenCtx.font = '900 68px "Microsoft JhengHei", Arial';
+            mainScreenCtx.fillStyle = '#ffe500';
+            mainScreenCtx.font = '900 52px "Microsoft JhengHei", Arial';
             mainScreenCtx.fillText('夢想音樂節', 512, 330);
 
-            mainScreenCtx.font = 'bold 32px Arial';
-            mainScreenCtx.fillText('SUMMER LIVE STAGE 2026', 512, 390);
-
-            // 微光波紋律動
-            mainScreenCtx.fillStyle = 'rgba(255, 255, 255, ' + (0.1 + Math.sin(time * 3) * 0.05) + ')';
-            mainScreenCtx.fillRect(0, 0, 1024, 512);
+            mainScreenCtx.fillStyle = '#ffffff';
+            mainScreenCtx.font = 'bold 28px Arial';
+            mainScreenCtx.fillText('12/4 (Fri) — 12/5 (Sat)', 512, 390);
 
             mainCenterScreenTexture.needsUpdate = true;
         }
 
-        // 2. 【兩側直立轉播螢幕】
+        // 兩側 LIVE 轉播螢幕
         if (screenCtx) {
             const gradient = screenCtx.createLinearGradient(0, 0, 0, 640);
             gradient.addColorStop(0, '#0a0020');
@@ -483,7 +519,7 @@
 
             screenCtx.beginPath();
             screenCtx.arc(192, 300, 140 + Math.sin(time * 3) * 8, 0, Math.PI * 2);
-            screenCtx.fillStyle = 'rgba(255, 42, 109, 0.25)';
+            screenCtx.fillStyle = 'rgba(216, 61, 137, 0.28)';
             screenCtx.fill();
 
             // 偶像特寫
@@ -497,7 +533,7 @@
             screenCtx.arc(192, 215 + Math.sin(time * 2) * 5, 60, Math.PI, Math.PI * 2);
             screenCtx.fill();
 
-            screenCtx.fillStyle = '#ff2a6d';
+            screenCtx.fillStyle = '#d83d89';
             screenCtx.beginPath();
             screenCtx.moveTo(110, 640);
             screenCtx.lineTo(150, 290);
@@ -537,28 +573,26 @@
         const coords = calculateCoordinates(r, s, layout);
         const stats = evaluateSeat(r, s, coords);
 
-        // 攝影機眼高定位
         camera.position.set(coords.x, coords.y + eyeHeight, coords.z);
         controls.target.copy(stageTarget);
-        
-        // 限制拖曳時不可穿地
         controls.maxPolarAngle = Math.PI / 2 - 0.02;
         controls.update();
 
         updateFrontAudience(r, s, layout);
 
         document.getElementById('hudInfo').innerHTML = `
-            <b>第 ${r} 排 ${s} 號</b> (${posture === 'sit' ? '坐姿' : '站姿'}視角)<br>
+            <b>第 ${r} 排 ${s} 號</b> (${stats.zoneName})<br>
             舞台距離：${stats.distance.toFixed(1)} m ｜ 視角偏角：${stats.angle.toFixed(1)}°<br>
             離地眼高：${(coords.y + eyeHeight).toFixed(2)} m ${r === 1 ? '<b>(第一排無遮擋)</b>' : `(前方有 ${r - 1} 排觀眾)`}
         `;
 
         const resultBox = document.getElementById('resultBox');
         resultBox.style.display = 'block';
+        resultBox.style.borderLeftColor = stats.zoneColor;
         resultBox.innerHTML = `
-            <div style="font-size: 15px; font-weight: bold;">第 ${r} 排 ${s} 號 · 視野診斷</div>
+            <div style="font-size: 15px; font-weight: bold;">第 ${r} 排 ${s} 號 · <span style="color:${stats.zoneColor};">${stats.zoneName}</span></div>
             <div class="score-display" style="color: #00BFFF;">視野分數：${stats.final100} 分</div>
-            <span class="final-rank" style="background:${stats.rankColor};">${stats.finalRank}</span>
+            <span class="final-rank" style="background:${stats.zoneColor};">${stats.finalRank}</span>
             <span class="advice-item">📐 舞台直線距離：<b>${stats.distance.toFixed(1)}m</b></span>
             <span class="advice-item">🪑 視點高度：<b>${(coords.y + eyeHeight).toFixed(2)}m</b> (已計入椅面高度)</span>
             <span class="advice-item">👁️ 水平偏角：<b>${stats.angle.toFixed(1)}°</b></span>
@@ -604,7 +638,6 @@
 
         renderScreens(time);
 
-        // 確保相機 Y 軸不落入地面以下
         if (camera.position.y < 0.2) camera.position.y = 0.2;
 
         controls.update();
