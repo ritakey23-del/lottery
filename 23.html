@@ -366,12 +366,6 @@
         screenRight.position.set(17, 6.2, -3.5);
         scene.add(screenRight);
 
-        // 白色音控棚 (FOH)
-        const tentGeo = new THREE.BoxGeometry(6.5, 3.2, 4.0);
-        const tentMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.5 });
-        const fohTent = new THREE.Mesh(tentGeo, tentMat);
-        fohTent.position.set(0, 1.6, 28);
-        scene.add(fohTent);
 
         // 偶像 Idol
         idolGroup = new THREE.Group();
