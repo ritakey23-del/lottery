@@ -20,27 +20,25 @@
         .app-container { display: flex; height: 100vh; width: 100vw; }
         .sidebar { width: 380px; background: #13172b; padding: 20px; overflow-y: auto; border-right: 1px solid #242b4d; z-index: 10; display: flex; flex-direction: column; gap: 15px; }
         
-        /* 3D 視口：徹底鎖死手機手勢滾動，專注於視角旋轉 */
         .viewport-3d { 
             flex: 1; 
             position: relative; 
             background: #060810; 
-            touch-action: none; /* 禁止原生捲動與縮放手勢 */
+            touch-action: none; 
             overscroll-behavior: none;
             cursor: grab;
         }
         .viewport-3d:active { cursor: grabbing; }
         #canvas3d { width: 100%; height: 100%; display: block; touch-action: none; }
 
-        /* 左上角精簡極窄透明字卡 (點擊可收起) */
         .hud-overlay { 
             position: absolute; 
             top: 12px; 
             left: 12px; 
-            background: rgba(13, 17, 36, 0.65); 
+            background: rgba(13, 17, 36, 0.7); 
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            padding: 6px 12px; 
+            padding: 6px 14px; 
             border-radius: 20px; 
             font-size: 11px; 
             line-height: 1.4; 
@@ -120,21 +118,24 @@
                 <label>查詢座位</label>
                 <div>
                     第 <input type="number" id="rowA" value="2" min="1" max="43"> 排
-                    <input type="number" id="seatA" value="51" min="1" max="108"> 號
+                    <input type="number" id="seatA" value="20" min="1" max="108"> 號
                 </div>
             </div>
 
-            <button class="action-btn" onclick="applySeatView()">切換至該座位 (原地轉頭)</button>
+            <button class="action-btn" onclick="applySeatView()">切換至該座位 (自動對焦偶像)</button>
         </div>
 
         <div id="resultBox" class="result-card" style="display: none;"></div>
         
         <div style="font-size: 11px; color: #8792b8; line-height: 1.5;">
-            💡 提示：在上方 3D 畫面滑動即可順暢環顧四周，已阻斷網頁下滑干擾；點擊左上角迷你標籤可收起/展開詳細資訊。
+            💡 視野特點：<br>
+            • <b>正舞台左右開闊無柱</b>：已徹底移除舞台前方的立柱。<br>
+            • <b>自動精確對焦</b>：切換任何偏角座位時，鏡頭自動朝向主舞台中央偶像。<br>
+            • <b>手指滑動轉頭</b>：鎖死網頁滑動，拖曳順暢無延遲。
         </div>
     </div>
 
-    <!-- 3D 畫面與極簡 HUD -->
+    <!-- 3D 畫面與 HUD -->
     <div class="viewport-3d" id="viewport">
         <canvas id="canvas3d"></canvas>
         <div class="hud-overlay" id="hudInfo" onclick="toggleHudDetails()">
@@ -156,10 +157,11 @@
     let audienceBodyMesh = null;
 
     let idolGroup; 
+    let idolWorldPos = new THREE.Vector3(0, 3.2, -1.8); // 偶像胸口視覺焦點
     let sideScreenTexture, screenCanvas, screenCtx;
     let mainCenterScreenTexture, mainScreenCanvas, mainScreenCtx;
 
-    // 第一人稱轉頭視角變數 (平滑化插值)
+    // 第一人稱轉頭視角控制
     let isUserLooking = false;
     let isOverview = true;
     let targetYaw = 0;
@@ -170,7 +172,6 @@
     let previousPointerY = 0;
     let cameraFixedPos = new THREE.Vector3(0, 22, 52);
 
-    // 字卡精簡切換狀態
     let isHudExpanded = false;
     let currentHudData = { title: "全場俯瞰預覽", dist: "-", angle: "-", eye: "-" };
 
@@ -230,13 +231,13 @@
 
         camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.1, 200);
         camera.position.copy(cameraFixedPos);
-        camera.lookAt(0, 3.5, -2);
+        camera.lookAt(idolWorldPos);
 
         renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
         scene.add(ambientLight);
 
         buildEnvironment();
@@ -248,15 +249,15 @@
         animate(0);
     }
 
+    // 建立實景舞台：移除前方兩根柱子、控台已拿掉
     function buildEnvironment() {
-        // 地面
         const floorGeo = new THREE.PlaneGeometry(160, 160);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x12141c, roughness: 0.95 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // 主舞台 (前緣停在 z = 0)
+        // 1. 平行一字主舞台 (前緣停在 z = 0)
         const stageMat = new THREE.MeshStandardMaterial({ color: 0x11131a, roughness: 0.7 });
         const flatStage = new THREE.Mesh(new THREE.BoxGeometry(50, 2.0, 8), stageMat);
         flatStage.position.set(0, 1.0, -4);
@@ -268,14 +269,14 @@
         apron.position.set(0, 1.8, 0.1);
         scene.add(apron);
 
-        // 鐵馬護欄
+        // 2. 鐵馬護欄
         const barrierGeo = new THREE.BoxGeometry(46, 1.2, 0.05);
         const barrierMat = new THREE.MeshStandardMaterial({ color: 0x18181c, metalness: 0.8, roughness: 0.4 });
         const barrier = new THREE.Mesh(barrierGeo, barrierMat);
         barrier.position.set(0, 0.6, 3.6);
         scene.add(barrier);
 
-        // 前沿音箱
+        // 3. 前沿返聽音箱
         const monitorGeo = new THREE.BoxGeometry(1.2, 0.45, 0.7);
         const monitorMat = new THREE.MeshStandardMaterial({ color: 0x050608 });
         for (let x = -20; x <= 20; x += 3.4) {
@@ -284,7 +285,7 @@
             scene.add(mon);
         }
 
-        // 頂棚
+        // 4. 中央斜頂主頂棚 (懸臂無柱式鋼架頂棚)
         const trussMat = new THREE.MeshStandardMaterial({ color: 0x484f6d, metalness: 0.7, roughness: 0.3 });
         const roofShape = new THREE.Shape();
         roofShape.moveTo(-10.5, 0);   
@@ -297,7 +298,7 @@
         roof.position.set(0, 10.5, -8.2);
         scene.add(roof);
 
-        // 頂棚橫看板
+        // 頂棚橫向看板
         const headerBannerGeo = new THREE.PlaneGeometry(18, 1.6);
         const headerCanvas = document.createElement('canvas');
         headerCanvas.width = 1024;
@@ -314,15 +315,15 @@
         headerBanner.position.set(0, 9.8, -0.2);
         scene.add(headerBanner);
 
-        // 鋼架支柱
+        // 【已修改】：徹底移除前方左右兩根柱子，只保留後方結構柱
         const pGeo = new THREE.BoxGeometry(0.8, 11, 0.8);
-        [[-9.5, -0.5], [9.5, -0.5], [-9.5, -7.5], [9.5, -7.5]].forEach(pos => {
+        [[-9.5, -7.5], [9.5, -7.5]].forEach(pos => {
             const p = new THREE.Mesh(pGeo, trussMat);
             p.position.set(pos[0], 6.5, pos[1]);
             scene.add(p);
         });
 
-        // 舞台正後方中央主視覺 LED 巨幕
+        // 5. 舞台正後方中央主視覺 LED 巨幕
         mainScreenCanvas = document.createElement('canvas');
         mainScreenCanvas.width = 1024;
         mainScreenCanvas.height = 512;
@@ -333,7 +334,7 @@
         mainScreen.position.set(0, 6.2, -7.8);
         scene.add(mainScreen);
 
-        // 懸吊線性音響
+        // 6. 懸吊線性陣列音響
         const lineArrayGeo = new THREE.BoxGeometry(0.7, 0.35, 0.5);
         const paMat = new THREE.MeshStandardMaterial({ color: 0x08080a });
         [-10.5, 10.5].forEach(xPos => {
@@ -348,7 +349,7 @@
             scene.add(paGroup);
         });
 
-        // 左右各一橫向 16:9 轉播大螢幕
+        // 7. 左右兩側各一面橫向 16:9 轉播大螢幕
         screenCanvas = document.createElement('canvas');
         screenCanvas.width = 640;
         screenCanvas.height = 360;
@@ -366,8 +367,7 @@
         screenRight.position.set(17, 6.2, -3.5);
         scene.add(screenRight);
 
-
-        // 偶像 Idol
+        // 8. 偶像 Idol (站立在 y = 2.0 舞台前端)
         idolGroup = new THREE.Group();
         const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.8, 16), 
             new THREE.MeshStandardMaterial({ color: 0xd83d89, roughness: 0.3 }));
@@ -568,9 +568,6 @@
         }
     }
 
-    // =========================================================================
-    // 【核心觸控鎖定與平滑轉頭 (徹底解決滑動網頁問題)】
-    // =========================================================================
     function setupSmoothTouchControls() {
         const dom = document.getElementById('viewport');
 
@@ -584,7 +581,6 @@
         function onPointerMove(e) {
             if (!isUserLooking) return;
 
-            // 關鍵：阻止瀏覽器將垂直拖曳轉化為捲動網頁
             if (e.cancelable) e.preventDefault();
 
             const touch = e.touches ? e.touches[0] : e;
@@ -594,11 +590,9 @@
             previousPointerX = touch.clientX;
             previousPointerY = touch.clientY;
 
-            // 累加目標角度 (支援滑順插值)
             targetYaw -= deltaX * 0.0045;
             targetPitch -= deltaY * 0.0045;
 
-            // 限制仰角
             targetPitch = Math.max(-Math.PI / 4.5, Math.min(Math.PI / 2.8, targetPitch));
         }
 
@@ -606,32 +600,29 @@
             isUserLooking = false;
         }
 
-        // 滑鼠事件
         dom.addEventListener('mousedown', onPointerStart);
         window.addEventListener('mousemove', onPointerMove, { passive: false });
         window.addEventListener('mouseup', onPointerEnd);
 
-        // 手機觸控事件 (passive: false 允許 e.preventDefault 完全生效)
         dom.addEventListener('touchstart', onPointerStart, { passive: false });
         window.addEventListener('touchmove', onPointerMove, { passive: false });
         window.addEventListener('touchend', onPointerEnd);
         window.addEventListener('touchcancel', onPointerEnd);
     }
 
-    // 每一幀進行平滑內插轉動
     function updateCameraFrame() {
         if (isOverview) {
             camera.position.set(0, 22, 52);
-            camera.lookAt(0, 3.5, -2);
+            camera.lookAt(idolWorldPos);
             return;
         }
 
-        // 柔和插值阻尼 (Lerp)
         currentYaw += (targetYaw - currentYaw) * 0.25;
         currentPitch += (targetPitch - currentPitch) * 0.25;
 
         camera.position.copy(cameraFixedPos);
 
+        // 正確的水平/俯仰向外向量計算
         const lookTarget = new THREE.Vector3(
             cameraFixedPos.x + Math.sin(currentYaw) * Math.cos(currentPitch),
             cameraFixedPos.y + Math.sin(currentPitch),
@@ -640,14 +631,11 @@
         camera.lookAt(lookTarget);
     }
 
-    // 字卡精簡切換
     function updateHudDisplay() {
         const hud = document.getElementById('hudInfo');
         if (!isHudExpanded) {
-            // 極簡模式：單行膠囊
             hud.innerHTML = `<span>📍 ${currentHudData.title}</span> <span style="opacity:0.6;font-size:10px;">(點擊詳細)</span>`;
         } else {
-            // 展開模式
             hud.innerHTML = `
                 <b>${currentHudData.title}</b><br>
                 距舞台：<b>${currentHudData.dist}</b> ｜ 偏角：<b>${currentHudData.angle}</b><br>
@@ -661,6 +649,7 @@
         updateHudDisplay();
     }
 
+    // 【核心修復】：切換座位時，鏡頭必 100% 正對舞台中央偶像！
     function applySeatView() {
         const r = parseInt(document.getElementById('rowA').value);
         const s = parseInt(document.getElementById('seatA').value);
@@ -681,18 +670,23 @@
         isOverview = false;
         cameraFixedPos.set(coords.x, coords.y + eyeHeight, coords.z);
 
-        const dx = 0 - coords.x;
-        const dz = (-1.8) - coords.z;
-        const dy = 3.6 - (coords.y + eyeHeight);
+        // 核心向量算式：計算從當前座位看向 Idol (0, 3.2, -1.8) 的精準偏角與仰角
+        const dirX = idolWorldPos.x - cameraFixedPos.x;
+        const dirY = idolWorldPos.y - cameraFixedPos.y;
+        const dirZ = idolWorldPos.z - cameraFixedPos.z;
 
-        targetYaw = -Math.atan2(dx, -dz);
-        targetPitch = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+        // Yaw: 水平轉向角度 (正對 Idol)
+        targetYaw = Math.atan2(dirX, -dirZ);
+        
+        // Pitch: 向上仰角
+        const horizDist = Math.sqrt(dirX * dirX + dirZ * dirZ);
+        targetPitch = Math.atan2(dirY, horizDist);
+
         currentYaw = targetYaw;
         currentPitch = targetPitch;
 
         updateFrontAudience(r, s, layout);
 
-        // 更新精簡字卡資料
         currentHudData = {
             title: `第 ${r} 排 ${s} 號 · ${stats.zoneName.split(' ')[0]}`,
             dist: `${stats.distance.toFixed(1)}m`,
@@ -701,7 +695,6 @@
         };
         updateHudDisplay();
 
-        // 側欄分析卡片
         const resultBox = document.getElementById('resultBox');
         resultBox.style.display = 'block';
         resultBox.style.borderLeftColor = stats.zoneColor;
