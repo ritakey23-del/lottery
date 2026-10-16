@@ -15,7 +15,7 @@
         .viewport-3d { flex: 1; position: relative; background: #060810; }
         #canvas3d { width: 100%; height: 100%; display: block; }
 
-        .hud-overlay { position: absolute; top: 15px; left: 15px; background: rgba(13, 17, 36, 0.82); padding: 12px 18px; border-radius: 8px; font-size: 13px; line-height: 1.5; pointer-events: none; border: 1px solid #2d3766; }
+        .hud-overlay { position: absolute; top: 15px; left: 15px; background: rgba(13, 17, 36, 0.85); padding: 12px 18px; border-radius: 8px; font-size: 13px; line-height: 1.5; pointer-events: none; border: 1px solid #2d3766; }
         .fov-toggle { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 8px; }
         .fov-btn { background: rgba(20, 26, 54, 0.9); color: #fff; border: 1px solid #414f8c; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
         .fov-btn:hover { background: #2f3a6e; }
@@ -34,7 +34,6 @@
         .final-rank { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #fff; margin-bottom: 8px; }
         .advice-item { display: block; font-size: 12px; color: #ccd3eb; margin-top: 4px; }
 
-        /* 圖例說明樣式 */
         .color-legend { display: flex; gap: 10px; font-size: 11px; margin-top: 5px; }
         .legend-badge { display: flex; align-items: center; gap: 4px; }
         .dot { width: 10px; height: 10px; border-radius: 2px; }
@@ -63,7 +62,7 @@
             <div class="input-group">
                 <label>觀看姿勢</label>
                 <select id="postureSelect" onchange="applySeatView()">
-                    <option value="sit" selected>🪑 坐姿 (預設椅高)</option>
+                    <option value="sit" selected>🪑 坐姿 (預設真實椅高)</option>
                     <option value="stand">🧍 站姿 (站立嗨唱)</option>
                 </select>
             </div>
@@ -83,7 +82,7 @@
             <div class="input-group">
                 <label>查詢座位</label>
                 <div>
-                    第 <input type="number" id="rowA" value="8" min="1" max="43"> 排
+                    第 <input type="number" id="rowA" value="2" min="1" max="43"> 排
                     <input type="number" id="seatA" value="51" min="1" max="108"> 號
                 </div>
             </div>
@@ -95,9 +94,10 @@
         
         <div style="font-size: 12px; color: #8792b8; line-height: 1.5;">
             💡 視野特點：<br>
-            • 全場座位精確套用官方桃紅（超級搖滾區）與深紫（搖滾區）色彩。<br>
-            • 視角已加入地平線防穿透限制，旋轉時絕不會透穿地底。<br>
-            • 第 1 排前方完全開闊，後排會真實呈現前方整片觀眾人海。
+            • <b>全平地排位</b>：已移除階梯坡度，完美還原戶外廣場平地坐姿自然仰角。<br>
+            • <b>實景器材配置</b>：包含 2m 挑高平行舞台、鐵馬護欄、舞台低音音箱陣列。<br>
+            • <b>防穿地鎖定</b>：旋轉視角絕不會翻轉至地平線以下。<br>
+            • <b>真實透視人海</b>：第 1 排前方完全開闊，後排呈現自然前方坐席人潮。
         </div>
     </div>
 
@@ -121,16 +121,19 @@
     let seatInstancedMesh = null;
     let audienceHeadMesh = null;
     let audienceBodyMesh = null;
-    let stageTarget = new THREE.Vector3(0, 3.2, -2);
+    
+    // 舞台焦點：對齊 2m 舞台上偶像的胸口/臉部 (約 y = 3.6m, z = -1.8m)
+    let stageTarget = new THREE.Vector3(0, 3.6, -1.8);
 
     let idolGroup; 
     let sideScreenTexture, screenCanvas, screenCtx;
     let mainCenterScreenTexture, mainScreenCanvas, mainScreenCtx;
 
-    // 空間座標系統
+    // 空間座標系統：完全平地 (y = 0.0)
     function calculateCoordinates(r, s, layout) {
         let v_aisles = layout === 'decreasing' ? [15, 29, 42, 66, 79, 93] : [4, 14, 24, 34, 44, 64, 74, 84, 94, 104];
         
+        // Z 軸深度：第 1 排距離舞台 5.2 米
         let z = 5.2 + (r - 1) * 0.9;
         if (r > 10) z += 1.8;
         if (r > 20) z += 1.8;
@@ -147,13 +150,14 @@
             x += 0.3;
         }
 
-        let y = (r - 1) * 0.08;
+        // 戶外廣場全為平地，無台階坡度
+        let y = 0.0;
         return { x, y, z };
     }
 
     function evaluateSeat(r, s, coords) {
-        let distance = Math.sqrt(coords.x * coords.x + (coords.z - (-2)) * (coords.z - (-2)));
-        let angle = Math.atan(Math.abs(coords.x) / (coords.z - (-2))) * (180 / Math.PI);
+        let distance = Math.sqrt(coords.x * coords.x + (coords.z - (-1.8)) * (coords.z - (-1.8)));
+        let angle = Math.atan(Math.abs(coords.x) / (coords.z - (-1.8))) * (180 / Math.PI);
         let isMainStage = (s >= 40 && s <= 69);
 
         let scoreDist = Math.max(0, 100 - (distance / 50) * 60); 
@@ -179,7 +183,7 @@
         const canvas = document.getElementById('canvas3d');
 
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x060814); // 呼應官方夜空深色調
+        scene.background = new THREE.Color(0x060814);
         scene.fog = new THREE.FogExp2(0x060814, 0.009);
 
         camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.1, 200);
@@ -194,7 +198,7 @@
         controls.dampingFactor = 0.08;
         controls.target.copy(stageTarget);
 
-        // 鎖定防穿透地底限制
+        // 防穿地鎖定
         controls.maxPolarAngle = Math.PI / 2 - 0.02; 
         controls.minDistance = 1;
         controls.maxDistance = 120;
@@ -216,40 +220,45 @@
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // 1. 平行一字主舞台 (前緣停在 z = 0)
-        const stageMat = new THREE.MeshStandardMaterial({ color: 0x1a1d2d, roughness: 0.5 });
-        const flatStage = new THREE.Mesh(new THREE.BoxGeometry(52, 1.8, 8), stageMat);
-        flatStage.position.set(0, 0.9, -4);
+        // 1. 平行一字主舞台 (挑高 2.0m，台面在 y = 2.0，前緣齊平 z = 0)
+        const stageMat = new THREE.MeshStandardMaterial({ color: 0x14161f, roughness: 0.6 });
+        const flatStage = new THREE.Mesh(new THREE.BoxGeometry(52, 2.0, 8), stageMat);
+        flatStage.position.set(0, 1.0, -4);
         scene.add(flatStage);
 
-        // 2. 舞台前沿低音喇叭組
-        const subGeo = new THREE.BoxGeometry(1.2, 0.7, 0.8);
-        const subMat = new THREE.MeshStandardMaterial({ color: 0x080910, roughness: 0.8 });
+        // 2. 舞台前緣鐵馬護欄 (高 1.2m，位於第 1 排前方走道 z = 3.6m 處)
+        const barrierGeo = new THREE.BoxGeometry(48, 1.2, 0.05);
+        const barrierMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.8, roughness: 0.4 });
+        const barrier = new THREE.Mesh(barrierGeo, barrierMat);
+        barrier.position.set(0, 0.6, 3.6);
+        scene.add(barrier);
+
+        // 3. 舞台前沿低音喇叭組 (放在 y=2.0 台面上，高 0.6m，前緣達到 2.6m 高度)
+        const subGeo = new THREE.BoxGeometry(1.4, 0.6, 0.9);
+        const subMat = new THREE.MeshStandardMaterial({ color: 0x08090d, roughness: 0.8 });
         for (let x = -21; x <= 21; x += 3.2) {
             const sub = new THREE.Mesh(subGeo, subMat);
-            sub.position.set(x, 2.15, -0.4);
+            sub.position.set(x, 2.3, -0.4);
             scene.add(sub);
         }
 
-        // 3. 舞台前緣鐵馬護欄
-        const barrierGeo = new THREE.BoxGeometry(48, 1.1, 0.05);
-        const barrierMat = new THREE.MeshStandardMaterial({ color: 0x3d435e, metalness: 0.8 });
-        const barrier = new THREE.Mesh(barrierGeo, barrierMat);
-        barrier.position.set(0, 0.55, 3.2);
-        scene.add(barrier);
-
-        // 4. 中央斜頂主頂棚
+        // 4. 中央斜頂主頂棚 (A 字形頂棚，尖端向上)
         const trussMat = new THREE.MeshStandardMaterial({ color: 0x545b7e, metalness: 0.7, roughness: 0.3 });
-        const roofGeo = new THREE.CylinderGeometry(13, 13, 10, 3, 1, false);
+        
+        const roofShape = new THREE.Shape();
+        roofShape.moveTo(-10.5, 0);   
+        roofShape.lineTo(0, 2.8);     
+        roofShape.lineTo(10.5, 0);    
+        roofShape.closePath();
+
+        const extrudeSettings = { depth: 8.5, bevelEnabled: false };
+        const roofGeo = new THREE.ExtrudeGeometry(roofShape, extrudeSettings);
         const roofMat = new THREE.MeshStandardMaterial({ color: 0x1c213a, roughness: 0.6 });
         const roof = new THREE.Mesh(roofGeo, roofMat);
-        roof.rotation.x = Math.PI / 2;
-        roof.rotation.z = Math.PI;
-        roof.scale.set(1, 0.45, 1);
-        roof.position.set(0, 12.2, -4);
+        roof.position.set(0, 10.5, -8.2);
         scene.add(roof);
 
-        // 頂棚大橫眉 (OPEN! DREAM WORLD 專屬看板)
+        // 頂棚大橫眉 (OPEN! DREAM WORLD 看板)
         const headerBannerGeo = new THREE.PlaneGeometry(18, 1.6);
         const headerCanvas = document.createElement('canvas');
         headerCanvas.width = 1024;
@@ -274,7 +283,7 @@
             scene.add(p);
         });
 
-        // 5. 【舞台正後方中央主視覺 LED 巨幕】 (OPEN! 夢想音樂節官方色調)
+        // 5. 舞台正後方中央主視覺 LED 巨幕
         mainScreenCanvas = document.createElement('canvas');
         mainScreenCanvas.width = 1024;
         mainScreenCanvas.height = 512;
@@ -283,7 +292,7 @@
 
         const mainScreenMat = new THREE.MeshBasicMaterial({ map: mainCenterScreenTexture });
         const mainScreen = new THREE.Mesh(new THREE.PlaneGeometry(17, 7.5), mainScreenMat);
-        mainScreen.position.set(0, 5.6, -7.8);
+        mainScreen.position.set(0, 6.2, -7.8);
         scene.add(mainScreen);
 
         // 6. 兩側線性陣列喇叭 (Line Array)
@@ -312,22 +321,22 @@
         const sideScreenGeo = new THREE.PlaneGeometry(6, 9.5);
 
         const screenL1 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-        screenL1.position.set(-20, 6.8, -3.5);
+        screenL1.position.set(-20, 7.2, -3.5);
         scene.add(screenL1);
 
         const screenL2 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-        screenL2.position.set(-13.5, 6.8, -3.5);
+        screenL2.position.set(-13.5, 7.2, -3.5);
         scene.add(screenL2);
 
         const screenR1 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-        screenR1.position.set(13.5, 6.8, -3.5);
+        screenR1.position.set(13.5, 7.2, -3.5);
         scene.add(screenR1);
 
         const screenR2 = new THREE.Mesh(sideScreenGeo, liveScreenMat);
-        screenR2.position.set(20, 6.8, -3.5);
+        screenR2.position.set(20, 7.2, -3.5);
         scene.add(screenR2);
 
-        // 8. 兩側一般站位區標記 (一般 A 區 / 一般 B 區 - 湛藍色區塊)
+        // 8. 兩側一般站位區標記 (A/B 區)
         const standingZoneGeo = new THREE.PlaneGeometry(6, 32);
         const standingZoneMat = new THREE.MeshStandardMaterial({ color: 0x0077b6, transparent: true, opacity: 0.35 });
         
@@ -341,10 +350,10 @@
         standR.position.set(26, 0.05, 20);
         scene.add(standR);
 
-        // 9. 偶像 (Idol)
+        // 9. 偶像 (Idol) 站立於 y = 2.0 的舞台面上
         idolGroup = new THREE.Group();
         const bodyGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.8, 16);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd83d89, roughness: 0.3 }); // 舞台亮桃粉打歌服
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd83d89, roughness: 0.3 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         body.position.y = 1.3;
         idolGroup.add(body);
@@ -368,7 +377,7 @@
         idolGroup.add(legL);
         idolGroup.add(legR);
 
-        idolGroup.position.set(0, 1.8, -1.8);
+        idolGroup.position.set(0, 2.0, -1.8);
         scene.add(idolGroup);
 
         const idolSpot = new THREE.SpotLight(0xffffff, 4, 30, Math.PI / 5, 0.25);
@@ -377,7 +386,6 @@
         scene.add(idolSpot);
     }
 
-    // 全座位渲染 (依票面精確換色：1~24排桃紅，25~43排深紫)
     function buildSeatCloud() {
         if (seatInstancedMesh) scene.remove(seatInstancedMesh);
 
@@ -398,12 +406,9 @@
                 dummy.updateMatrix();
                 seatInstancedMesh.setMatrixAt(idx, dummy.matrix);
 
-                // 官方視覺色配比：
                 if (r <= 24) {
-                    // 超級搖滾區 (桃粉色 #D83D89)
                     color.setHex(0xd83d89);
                 } else {
-                    // 搖滾區 (深紫色 #6C2D8E)
                     color.setHex(0x6c2d8e);
                 }
                 seatInstancedMesh.setColorAt(idx, color);
@@ -416,7 +421,6 @@
         scene.add(seatInstancedMesh);
     }
 
-    // 前方觀眾群邏輯：第 1 排無人，後排渲染真實人海
     function updateFrontAudience(currentR, currentS, layout) {
         if (audienceHeadMesh) scene.remove(audienceHeadMesh);
         if (audienceBodyMesh) scene.remove(audienceBodyMesh);
@@ -448,6 +452,7 @@
         for (let r = 1; r < currentR; r++) {
             for (let s = minS; s <= maxS; s++) {
                 const coords = calculateCoordinates(r, s, layout);
+                // 坐姿高度 (椅面 0.42m + 頭部高度)
                 dummyHead.position.set(coords.x, coords.y + 0.98, coords.z);
                 dummyHead.updateMatrix();
                 audienceHeadMesh.setMatrixAt(idx, dummyHead.matrix);
@@ -467,10 +472,8 @@
         scene.add(audienceBodyMesh);
     }
 
-    // 繪製正後方 OPEN! 夢想音樂節專屬視覺螢幕
     function renderScreens(time) {
         if (mainScreenCtx) {
-            // 深藍夜空主漸層底
             const grad = mainScreenCtx.createLinearGradient(0, 0, 1024, 512);
             grad.addColorStop(0, '#0a0d24');
             grad.addColorStop(0.5, '#182046');
@@ -478,7 +481,6 @@
             mainScreenCtx.fillStyle = grad;
             mainScreenCtx.fillRect(0, 0, 1024, 512);
 
-            // 雙色科技圓環裝飾 (桃紅 + 湖水藍)
             mainScreenCtx.strokeStyle = '#d83d89';
             mainScreenCtx.lineWidth = 6;
             mainScreenCtx.beginPath();
@@ -491,7 +493,6 @@
             mainScreenCtx.arc(512, 160, 110 + Math.cos(time * 2) * 5, 0, Math.PI * 2);
             mainScreenCtx.stroke();
 
-            // 標誌大字
             mainScreenCtx.fillStyle = '#ffffff';
             mainScreenCtx.font = '900 68px "Arial Black", sans-serif';
             mainScreenCtx.textAlign = 'center';
@@ -508,7 +509,6 @@
             mainCenterScreenTexture.needsUpdate = true;
         }
 
-        // 兩側 LIVE 轉播螢幕
         if (screenCtx) {
             const gradient = screenCtx.createLinearGradient(0, 0, 0, 640);
             gradient.addColorStop(0, '#0a0020');
@@ -522,7 +522,6 @@
             screenCtx.fillStyle = 'rgba(216, 61, 137, 0.28)';
             screenCtx.fill();
 
-            // 偶像特寫
             screenCtx.fillStyle = '#ffdfd0';
             screenCtx.beginPath();
             screenCtx.arc(192, 230 + Math.sin(time * 2) * 5, 55, 0, Math.PI * 2);
@@ -562,7 +561,9 @@
         const heightCm = parseFloat(document.getElementById('viewerHeight').value) || 165;
         const posture = document.getElementById('postureSelect').value;
 
-        let eyeHeight = posture === 'sit' ? (0.42 + (heightCm * 0.45 / 100)) : (heightCm * 0.93 / 100);
+        // 精準坐姿眼高：椅高 0.42m + 坐姿上半身眼高 (身高的 43%)
+        // 165cm 成年人坐下眼高約 1.13m
+        let eyeHeight = posture === 'sit' ? (0.42 + (heightCm * 0.43 / 100)) : (heightCm * 0.92 / 100);
 
         if (r < 1 || r > totalRows || s < 1 || s > 108) {
             alert('請輸入有效範圍內的座位 (排: 1~43, 號: 1~108)');
@@ -594,7 +595,7 @@
             <div class="score-display" style="color: #00BFFF;">視野分數：${stats.final100} 分</div>
             <span class="final-rank" style="background:${stats.zoneColor};">${stats.finalRank}</span>
             <span class="advice-item">📐 舞台直線距離：<b>${stats.distance.toFixed(1)}m</b></span>
-            <span class="advice-item">🪑 視點高度：<b>${(coords.y + eyeHeight).toFixed(2)}m</b> (已計入椅面高度)</span>
+            <span class="advice-item">🪑 視點高度：<b>${(coords.y + eyeHeight).toFixed(2)}m</b> (已計入真實椅面高度)</span>
             <span class="advice-item">👁️ 水平偏角：<b>${stats.angle.toFixed(1)}°</b></span>
         `;
     }
@@ -632,7 +633,7 @@
         const time = currentTime * 0.001;
 
         if (idolGroup) {
-            idolGroup.position.y = 1.8 + Math.sin(time * 2.5) * 0.02;
+            idolGroup.position.y = 2.0 + Math.sin(time * 2.5) * 0.02;
             idolGroup.rotation.y = Math.sin(time * 1.2) * 0.12;
         }
 
