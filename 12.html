@@ -57,7 +57,23 @@
     }
   </style>
 </head>
-
+<script>
+  (function() {
+    const MY_SECRET = "2026"; // 👈 在這裡設定你自己的專屬密碼
+    
+    // 檢查本次分頁是否已經輸入過密碼（避免重新整理一直跳）
+    if (sessionStorage.getItem("auth_pass") !== "true") {
+      const input = prompt("💎 請輸入存取金鑰：");
+      if (input === MY_SECRET) {
+        sessionStorage.setItem("auth_pass", "true");
+      } else {
+        alert("密碼錯誤，拒絕存取！");
+        document.body.innerHTML = "<h2 style='color:#fff;text-align:center;margin-top:20%'>🔒 Access Denied</h2>";
+        window.stop();
+      }
+    }
+  })();
+</script>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-pearl-400 selection:text-slate-950 relative overflow-x-hidden">
 
   <!-- Ambient light decorations -->
