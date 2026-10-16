@@ -3,277 +3,581 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>💎 SHINee 祭品文抽獎系統</title>
+  <title>💎 SHINee Concert Promise Giveaway Lottery</title>
+  
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pearl: {
+              300: '#a3f3e6',
+              400: '#79E2D0', /* SHINee Official Pearl Aqua */
+              500: '#2dd4bf',
+              600: '#00B2A9',
+              900: '#062d29',
+              950: '#031c19',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & Canvas Confetti -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
   <style>
-    :root {
-      --pearl-aqua: #79E2D0;
-      --pearl-aqua-dark: #3BBFA8;
-      --pearl-aqua-glow: rgba(121, 226, 208, 0.35);
-    }
-    .text-aqua { color: var(--pearl-aqua); }
-    .bg-aqua { background-color: var(--pearl-aqua); }
-    .border-aqua { border-color: var(--pearl-aqua); }
-    .glow-aqua {
-      box-shadow: 0 0 25px var(--pearl-aqua-glow);
-    }
-    .custom-scroll::-webkit-scrollbar {
+    /* Custom scrollbars and glowing accents */
+    ::-webkit-scrollbar {
       width: 6px;
+      height: 6px;
     }
-    .custom-scroll::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 4px;
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.7);
     }
-    .custom-scroll::-webkit-scrollbar-thumb:hover {
-      background: #475569;
+    ::-webkit-scrollbar-thumb {
+      background: rgba(121, 226, 208, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(121, 226, 208, 0.65);
+    }
+    .pearl-glow {
+      box-shadow: 0 0 30px -5px rgba(121, 226, 208, 0.3);
+    }
+    .pearl-text-glow {
+      text-shadow: 0 0 18px rgba(121, 226, 208, 0.5);
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center p-4 md:p-8 font-sans selection:bg-[#79E2D0] selection:text-slate-900">
+
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-pearl-400 selection:text-slate-950 relative overflow-x-hidden">
+
+  <!-- Ambient light decorations -->
+  <div class="fixed top-0 left-1/4 w-96 h-96 bg-pearl-500/10 rounded-full blur-[130px] pointer-events-none"></div>
+  <div class="fixed bottom-10 right-1/4 w-[32rem] h-[32rem] bg-pearl-600/10 rounded-full blur-[160px] pointer-events-none"></div>
 
   <!-- Header -->
-  <header class="text-center mb-6 max-w-xl">
-    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-teal-500/30 bg-teal-950/40 text-aqua text-xs font-semibold mb-3">
-      <span>💎 祭品兌現中</span> • <span>Pearl Aqua Lucky Draw</span>
-    </div>
-    <h1 class="text-3xl md:text-4xl font-extrabold text-white tracking-wide flex items-center justify-center gap-2">
-      SHINee 祭品文開獎面板
-    </h1>
-    <p class="text-xs text-slate-400 mt-2">支援 Threads (一人一籤) 與 Instagram (可重複留言需標記不同人) 自動驗證去重</p>
-  </header>
-
-  <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-    <!-- 左側面板：控制與設定區 (5 cols) -->
-    <section class="lg:col-span-5 flex flex-col gap-5">
-      
-      <!-- 檔案與平台設定 -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-md">
-        <h2 class="text-sm font-semibold text-aqua mb-3 flex items-center gap-2">
-          <span>📁 資料來源設定</span>
-        </h2>
-        
-        <div class="mb-4">
-          <label class="block text-xs text-slate-400 mb-1">上傳留言 JSON 檔：</label>
-          <input type="file" id="fileInput" accept=".json" class="block w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-500/20 file:text-aqua hover:file:bg-teal-500/30 cursor-pointer border border-slate-700 rounded-xl bg-slate-800/60 p-1"/>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">抽獎模式：</label>
-            <select id="platformMode" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-aqua">
-              <option value="threads">Threads (帳號去重/一人一籤)</option>
-              <option value="instagram" selected>Instagram (需標記不同好友)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">IG 最少標記好友數：</label>
-            <input type="number" id="minMentions" value="1" min="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-aqua">
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between p-2.5 bg-slate-950/60 rounded-xl border border-slate-800 text-xs">
-          <span class="text-slate-400">目前有效抽獎籤數：</span>
-          <span id="ticketCountBadge" class="font-bold text-aqua text-sm">0 張籤</span>
+  <header class="border-b border-pearl-500/20 backdrop-blur-md bg-slate-950/70 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl animate-pulse">💎</span>
+        <div>
+          <h1 class="text-base md:text-xl font-extrabold tracking-wide pearl-text-glow text-pearl-400">
+            SHINee Concert Promise Giveaway Lottery
+          </h1>
+          <p class="text-[10px] md:text-xs text-slate-400">
+            SHINee 祭品文抽獎系統 • Pearlescent Sky Blue
+          </p>
         </div>
       </div>
-
-      <!-- 開獎設定 -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-md">
-        <h2 class="text-sm font-semibold text-aqua mb-3 flex items-center gap-2">
-          <span>🎯 本次抽取設定</span>
-        </h2>
-
-        <div class="mb-3">
-          <label class="block text-xs text-slate-400 mb-1">抽取獎項名稱：</label>
-          <input type="text" id="prizeName" value="2025 Keyland 入場帽子" placeholder="例如：娃包、風扇、蕾絲御守..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-aqua font-medium">
-          
-          <!-- 快捷填入標籤 -->
-          <div class="flex flex-wrap gap-1.5 mt-2">
-            <button type="button" onclick="setPrize('2025 Keyland 入場帽子', 1)" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700">帽子 x1</button>
-            <button type="button" onclick="setPrize('2025 Keyland 娃包', 1)" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700">娃包 x1</button>
-            <button type="button" onclick="setPrize('2026 SHINee 八巡 入場風扇', 1)" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700">風扇 x1</button>
-            <button type="button" onclick="setPrize('3coins × 車折神社 蕾絲御守', 3)" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700">御守 x3</button>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">抽取名額 (位)：</label>
-            <input type="number" id="drawCount" value="1" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-aqua">
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">留言關鍵字過濾 (選填)：</label>
-            <input type="text" id="filterKeyword" placeholder="如 #帽子 或 歌曲名" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-aqua">
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2 mb-4">
-          <input type="checkbox" id="excludePrevWinners" checked class="rounded bg-slate-800 border-slate-700 text-teal-500 focus:ring-0 cursor-pointer">
-          <label for="excludePrevWinners" class="text-xs text-slate-300 cursor-pointer select-none">排除先前已中獎帳號（避免重複中獎）</label>
-        </div>
-
-        <button id="startDrawBtn" class="w-full py-3.5 bg-gradient-to-r from-teal-400 to-[#3BBFA8] text-slate-950 font-bold rounded-xl transition duration-200 hover:opacity-95 active:scale-[0.99] glow-aqua text-sm flex items-center justify-center gap-2 shadow-lg">
-          <span>🎉 開始隨機抽出</span>
+      <div class="flex items-center space-x-2">
+        <button id="openScraperBtn" class="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full border border-pearl-400/40 hover:border-pearl-400 hover:bg-pearl-500/10 text-pearl-300 transition duration-200">
+          <i data-lucide="code-2" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">抓留言腳本庫</span>
+          <span class="sm:hidden">腳本庫</span>
         </button>
       </div>
-    </section>
+    </div>
+  </header>
 
-    <!-- 右側面板：開獎展示與得獎名單區 (7 cols) -->
-    <section class="lg:col-span-7 flex flex-col gap-5">
+  <!-- Main Grid -->
+  <main class="max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    
+    <!-- Left Column: Controls, Presets & Pool Rules (5 cols) -->
+    <div class="lg:col-span-5 space-y-5">
       
-      <!-- 動態大螢幕（支援 1 人巨幕、2-4 人雙欄、5 人以上三欄卡匣） -->
-      <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden min-h-[340px] flex flex-col">
-        <div class="absolute -top-12 -right-12 w-44 h-44 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
-            即時開獎大舞台
-          </span>
-          <span id="currentPrizeBadge" class="text-xs font-semibold px-2.5 py-1 rounded-md bg-teal-950/80 text-aqua border border-teal-500/30">
-            等待開獎
-          </span>
-        </div>
-
-        <!-- 開獎展示容器 -->
-        <div id="stageContainer" class="flex-1 flex flex-col items-center justify-center py-4">
-          <div class="text-slate-600 text-5xl mb-2">💎</div>
-          <p class="text-slate-400 text-sm">請於左側載入資料並按下「開始隨機抽出」</p>
-        </div>
-      </div>
-
-      <!-- 歷次開獎得獎紀錄 (中獎清冊) -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+      <!-- Card: Data Source -->
+      <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-md shadow-xl">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
-            <span>🏆 得獎清冊總結</span>
-            <span id="winnerBadge" class="text-[11px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-normal">共 0 位</span>
-          </h2>
+          <div class="flex items-center gap-2">
+            <i data-lucide="database" class="w-4 h-4 text-pearl-400"></i>
+            <h2 class="text-sm font-semibold text-slate-200">名單資料來源</h2>
+          </div>
+          <span id="poolBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-950 text-pearl-300 border border-pearl-500/30 font-mono">
+            籤池：0
+          </span>
+        </div>
+
+        <!-- Mode Tabs: Upload vs Paste -->
+        <div class="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl mb-3 text-xs font-medium">
+          <button id="tabUpload" class="py-2 rounded-lg bg-pearl-500 text-slate-950 font-bold transition">匯入 JSON 檔</button>
+          <button id="tabPaste" class="py-2 rounded-lg text-slate-400 hover:text-white transition">手動輸入 / 示範</button>
+        </div>
+
+        <!-- Upload View -->
+        <div id="viewUpload" class="space-y-3">
+          <label class="border-2 border-dashed border-slate-700 hover:border-pearl-400/60 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition bg-slate-950/40 group">
+            <i data-lucide="upload-cloud" class="w-7 h-7 text-slate-400 group-hover:text-pearl-400 transition mb-1.5"></i>
+            <span class="text-xs text-slate-300 font-medium">點擊或拖放 JSON 留言檔至此</span>
+            <span class="text-[10px] text-slate-500 mt-0.5">相容 Threads / Instagram 留言抓取結果</span>
+            <input type="file" id="jsonFileInput" accept=".json" class="hidden">
+          </label>
+        </div>
+
+        <!-- Paste / Mock View -->
+        <div id="viewPaste" class="hidden space-y-3">
+          <textarea id="pasteInput" rows="3" placeholder="每行一筆，例如：&#10;shinee_taem #帽子 @friend1&#10;key_freak #娃包 @friend2 @friend3" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-pearl-400 font-mono"></textarea>
           <div class="flex gap-2">
-            <button onclick="copyAnnouncement()" class="text-xs text-aqua hover:underline px-2.5 py-1 bg-slate-800/80 rounded-lg border border-slate-700">複製公告文案</button>
-            <button onclick="clearHistory()" class="text-xs text-rose-400 hover:underline px-2.5 py-1 bg-slate-800/80 rounded-lg border border-slate-700">重設紀錄</button>
+            <button id="parsePasteBtn" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-pearl-300 font-medium rounded-lg transition border border-slate-700">
+              套用名單
+            </button>
+            <button id="loadMockBtn" class="px-3 py-1.5 bg-pearl-500/10 hover:bg-pearl-500/20 text-xs text-pearl-400 rounded-lg transition border border-pearl-500/30">
+              載入閃窩示範
+            </button>
           </div>
         </div>
 
-        <div id="winnersHistoryList" class="flex-1 overflow-y-auto max-h-[280px] custom-scroll space-y-2.5 pr-1">
-          <p class="text-xs text-slate-500 text-center py-8">尚無開獎紀錄</p>
+        <!-- Data Stats -->
+        <div class="mt-3 pt-3 border-t border-slate-800/80 flex justify-between text-[11px] text-slate-400">
+          <span>原始則數：<strong id="statRawCount" class="text-slate-200">0</strong></span>
+          <span>獨立帳號：<strong id="statUserCount" class="text-slate-200">0</strong></span>
+          <span>有效籤數：<strong id="statTicketCount" class="text-pearl-300">0</strong></span>
+        </div>
+      </section>
+
+      <!-- Card: Giveaway Rules & Filter Settings -->
+      <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-md shadow-xl space-y-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-pearl-400"></i>
+          <h2 class="text-sm font-semibold text-slate-200">抽獎機制與獎項設定</h2>
+        </div>
+
+        <!-- Platform Mode Toggle -->
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">社群機制相容：</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-start gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+              <input type="radio" name="platformMode" value="threads" class="mt-0.5 text-pearl-500 focus:ring-0">
+              <div>
+                <div class="font-medium text-slate-200">Threads 模式</div>
+                <div class="text-[10px] text-slate-500">一人一籤，帳號自動去重</div>
+              </div>
+            </label>
+            <label class="flex items-start gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+              <input type="radio" name="platformMode" value="instagram" checked class="mt-0.5 text-pearl-500 focus:ring-0">
+              <div>
+                <div class="font-medium text-slate-200">Instagram 模式</div>
+                <div class="text-[10px] text-slate-500">可多投，需標記不同人</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Preset Quick Select -->
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">快速選擇祭品預設清單：</label>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button type="button" onclick="applyPreset('hat')" class="text-left text-[11px] p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-200 transition">
+              👑 Keyland 入場帽子 (1名)
+            </button>
+            <button type="button" onclick="applyPreset('bag')" class="text-left text-[11px] p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-200 transition">
+              🎒 Keyland 娃包 (1名)
+            </button>
+            <button type="button" onclick="applyPreset('fan')" class="text-left text-[11px] p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-200 transition">
+              🩵 八巡 入場風扇 (1名)
+            </button>
+            <button type="button" onclick="applyPreset('charm')" class="text-left text-[11px] p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-200 transition">
+              ⛩️ 車折神社 蕾絲御守 (3名)
+            </button>
+            <button type="button" onclick="applyPreset('photocard')" class="text-left text-[11px] p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-200 transition col-span-2">
+              ✨ 專輯 / 滿額小卡 (隨機盲盒加碼)
+            </button>
+          </div>
+        </div>
+
+        <!-- Prize Form Inputs -->
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <div class="col-span-2">
+            <label class="text-xs text-slate-400 block mb-1">當前欲開獎項：</label>
+            <input type="text" id="prizeTitleInput" value="2025 Keyland 入場帽子" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-pearl-400 font-medium">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">抽出名額：</label>
+            <input type="number" id="winnerCountInput" value="1" min="1" max="50" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-pearl-400">
+          </div>
+        </div>
+
+        <!-- Keyword Filter -->
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="text-xs text-slate-400">留言關鍵字過濾 (選填，留空不限)：</label>
+            <span class="text-[10px] text-slate-500">如 #帽子 或 歌曲名</span>
+          </div>
+          <input type="text" id="keywordFilterInput" placeholder="僅抽包含此文字的留言..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-pearl-400">
+        </div>
+
+        <!-- Exclusion Toggle -->
+        <div class="pt-1">
+          <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+            <input type="checkbox" id="excludePrevWinners" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-pearl-500 focus:ring-0">
+            <span>排除已中獎者（避免一人獨得複數大獎）</span>
+          </label>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Right Column: Live Draw Stage & Winner History (7 cols) -->
+    <div class="lg:col-span-7 space-y-5">
+      
+      <!-- Stage: Shuffling & Big Showcase -->
+      <section class="bg-gradient-to-b from-slate-900/90 to-slate-950 border border-pearl-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden pearl-glow">
+        
+        <div class="text-center space-y-1.5 mb-5">
+          <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-pearl-500/10 border border-pearl-500/30 text-pearl-300 text-xs font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-pearl-400 animate-ping"></span>
+            LIVE LOTTERY STAGE
+          </div>
+          <h2 id="currentStagePrize" class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+            2025 Keyland 入場帽子
+          </h2>
+          <p id="poolSummaryStatus" class="text-xs text-slate-400">
+            符合條件籤數：<span class="text-pearl-300 font-bold" id="statusEligibleCount">0</span> 張 • 預計抽出：<span class="text-pearl-300 font-bold" id="statusDrawCount">1</span> 位
+          </p>
+        </div>
+
+        <!-- Dynamic Winner Display Container (Adaptive Grid for Multiple Winners) -->
+        <div id="stageContainer" class="relative bg-slate-950/80 border border-slate-800 rounded-2xl min-h-[220px] flex flex-col items-center justify-center p-4 shadow-inner overflow-hidden transition-all">
+          <div id="waitingPlaceholder" class="text-center py-6">
+            <div class="text-4xl mb-2">💎</div>
+            <div class="text-sm font-semibold text-pearl-300 font-mono">@READY_TO_SHINE</div>
+            <p class="text-xs text-slate-500 mt-1 italic">「在左側載入資料，按下開始抽獎！」</p>
+          </div>
+        </div>
+
+        <!-- Draw Button -->
+        <div class="mt-5">
+          <button id="startDrawBtn" class="w-full py-3.5 bg-gradient-to-r from-pearl-500 to-pearl-600 hover:from-pearl-400 hover:to-pearl-500 text-slate-950 font-black rounded-xl text-base tracking-wider transition-all transform active:scale-[0.99] shadow-lg shadow-pearl-500/30 flex items-center justify-center gap-2">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+            <span>開始抽出幸運閃窩</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Ledger: All Cumulative Winners & Announcement Copy -->
+      <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-md shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i>
+            <h3 class="text-sm font-semibold text-slate-200">
+              得獎清冊總結 (<span id="winnerRecordCount" class="text-pearl-400">0</span>)
+            </h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="copyWinnersBtn" class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-pearl-300 border border-slate-700 transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>複製開獎串文</span>
+            </button>
+            <button id="clearWinnersBtn" class="text-xs px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition">
+              清空紀錄
+            </button>
+          </div>
+        </div>
+
+        <!-- Winners Scroll Area -->
+        <div id="winnersContainer" class="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+          <div id="emptyWinnersNotice" class="text-center py-10 text-slate-500 text-xs">
+            尚無開獎紀錄，請在上方點擊「開始抽出幸運閃窩」！
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal: Console Scraping Script Helper -->
+  <div id="scraperModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-pearl-500/30 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="terminal" class="w-5 h-5 text-pearl-400"></i>
+          <h3 class="font-bold text-slate-100 text-sm md:text-base">瀏覽器 Console 自動抓取腳本庫</h3>
+        </div>
+        <button id="closeScraperBtn" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="overflow-y-auto py-4 space-y-4 text-xs">
+        <p class="text-slate-400 leading-relaxed">
+          免安裝任何外掛！用電腦版 Chrome 開啟你的貼文頁面，按 <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-pearl-300 font-mono">F12</kbd> 切換至 <strong>Console</strong>，貼上下方腳本並按 Enter，跑完後將自動下載 <code>.json</code> 檔案：
+        </p>
+
+        <!-- Threads Script -->
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800">
+          <div class="flex justify-between items-center mb-2">
+            <span class="font-semibold text-pearl-300">🩵 Threads 串文留言抓取腳本</span>
+            <button onclick="copyScript('threads')" class="px-2.5 py-1 bg-pearl-500/20 hover:bg-pearl-500/30 text-pearl-300 rounded border border-pearl-500/40 text-[11px] transition">
+              複製腳本
+            </button>
+          </div>
+          <pre id="scriptThreads" class="bg-slate-900 p-2.5 rounded text-[10px] text-slate-300 overflow-x-auto select-all font-mono leading-normal">async function scrapeThreads(){const e=new Map;let t=0;while(t<4){window.scrollTo(0,document.body.scrollHeight);await new Promise(e=>setTimeout(e,1500));document.querySelectorAll("article").forEach((t,n)=>{if(0===n)return;const o=t.querySelector("header a, a[role='link']"),r=t.querySelector("div[dir='auto']"),s=o?o.textContent.trim().replace("@",""):null,l=r?r.textContent.trim():"";s&&!e.has(s)&&e.set(s,{username:s,text:l,mentions:[...l.matchAll(/@([\w._]+)/g)].map(e=>e[1].toLowerCase())})});const n=document.body.scrollHeight;t=n===last?t+1:0,last=n}const n=new Blob([JSON.stringify(Array.from(e.values()),null,2)],{type:"application/json"}),o=document.createElement("a");o.href=URL.createObjectURL(n),o.download=`threads_${Date.now()}.json`,o.click()}var last=0;scrapeThreads();</pre>
+        </div>
+
+        <!-- IG Script (Enhanced Selector to avoid blank usernames) -->
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800">
+          <div class="flex justify-between items-center mb-2">
+            <span class="font-semibold text-pearl-300">📸 Instagram 貼文抓取 (含好友標記與防止空白帳號)</span>
+            <button onclick="copyScript('ig')" class="px-2.5 py-1 bg-pearl-500/20 hover:bg-pearl-500/30 text-pearl-300 rounded border border-pearl-500/40 text-[11px] transition">
+              複製腳本
+            </button>
+          </div>
+          <pre id="scriptIG" class="bg-slate-900 p-2.5 rounded text-[10px] text-slate-300 overflow-x-auto select-all font-mono leading-normal">async function scrapeIG(loops=120){for(let i=0;i<loops;i++){const b=[...document.querySelectorAll("ul button, div[role='button']")].find(b=>b.textContent.includes("更多留言")||b.textContent.includes("more comments")||b.querySelector("svg[aria-label*='載入']"));if(b){b.click();await new Promise(r=>setTimeout(r,1200))}else{window.scrollBy(0,1000);await new Promise(r=>setTimeout(r,800))}}const items=[];document.querySelectorAll("ul > div > li, ul > li[role='menuitem']").forEach(li=>{const links=Array.from(li.querySelectorAll("a[role='link'], a[href^='/']"));let un="";for(const a of links){const txt=a.textContent.trim().replace("@",""),href=a.getAttribute("href")||"";if(txt&&!href.includes("/explore/")&&!href.includes("/tags/")){un=txt;break;}if(!un&&href.startsWith("/")&&href.split("/").filter(Boolean).length===1){un=href.replace(/\//g,"");}}const t=li.querySelector("span[dir='auto'], div[dir='auto']");if(un&&t){const txt=t.textContent.trim();items.push({username:un,text:txt,mentions:[...new Set([...txt.matchAll(/@([\w._]+)/g)].map(m=>m[1].toLowerCase()).filter(m=>m!==un.toLowerCase()))]})}});const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`ig_${Date.now()}.json`;a.click()}scrapeIG();</pre>
         </div>
       </div>
 
-    </section>
+      <div class="pt-3 border-t border-slate-800 text-right">
+        <button id="closeScraperBtn2" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-medium transition">
+          關閉視窗
+        </button>
+      </div>
+    </div>
+  </div>
 
-  </main>
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 border border-pearl-400/50 text-slate-100 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-pearl-400"></i>
+    <span id="toastMsg">操作已完成</span>
+  </div>
 
+  <!-- Main JavaScript Engine -->
   <script>
+    // Global Application State
     let rawComments = [];
-    let validTickets = [];
-    let winnersHistory = [];
+    let validTickets = []; // { username, text, mentions, validMentions }
+    let winnersHistory = []; // { id, prize, username, text, validMentions, timestamp }
+    let isDrawing = false;
 
-    function setPrize(name, count) {
-      document.getElementById('prizeName').value = name;
-      document.getElementById('drawCount').value = count;
+    // Preset configurations
+    const PRESETS = {
+      hat: { title: "2025 Keyland 入場帽子", count: 1, keyword: "#帽子" },
+      bag: { title: "2025 Keyland 娃包", count: 1, keyword: "#娃包" },
+      fan: { title: "2026 SHINee 八巡 入場風扇", count: 1, keyword: "#風扇" },
+      charm: { title: "3coins × 車折神社 蕾絲御守", count: 3, keyword: "" },
+      photocard: { title: "滿額小卡 / 專輯 (盲盒加碼)", count: 2, keyword: "" }
+    };
+
+    function applyPreset(key) {
+      const p = PRESETS[key];
+      if (!p) return;
+      document.getElementById('prizeTitleInput').value = p.title;
+      document.getElementById('winnerCountInput').value = p.count;
+      document.getElementById('keywordFilterInput').value = p.keyword;
+      document.getElementById('currentStagePrize').innerText = p.title;
+      updatePoolStatus();
+      showToast(`已套用祭品預設：${p.title}`);
     }
 
-    document.getElementById('fileInput').addEventListener('change', function(e) {
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').innerText = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    // Modal Events
+    document.getElementById('openScraperBtn').addEventListener('click', () => {
+      document.getElementById('scraperModal').classList.remove('hidden');
+    });
+    const closeModal = () => document.getElementById('scraperModal').classList.add('hidden');
+    document.getElementById('closeScraperBtn').addEventListener('click', closeModal);
+    document.getElementById('closeScraperBtn2').addEventListener('click', closeModal);
+
+    function copyScript(type) {
+      const script = type === 'threads' 
+        ? document.getElementById('scriptThreads').innerText 
+        : document.getElementById('scriptIG').innerText;
+      navigator.clipboard.writeText(script).then(() => {
+        showToast('腳本已複製到剪貼簿！');
+      });
+    }
+
+    // Tab Switching
+    const tabUpload = document.getElementById('tabUpload');
+    const tabPaste = document.getElementById('tabPaste');
+    const viewUpload = document.getElementById('viewUpload');
+    const viewPaste = document.getElementById('viewPaste');
+
+    tabUpload.addEventListener('click', () => {
+      tabUpload.className = "py-2 rounded-lg bg-pearl-500 text-slate-950 font-bold transition";
+      tabPaste.className = "py-2 rounded-lg text-slate-400 hover:text-white transition";
+      viewUpload.classList.remove('hidden');
+      viewPaste.classList.add('hidden');
+    });
+
+    tabPaste.addEventListener('click', () => {
+      tabPaste.className = "py-2 rounded-lg bg-pearl-500 text-slate-950 font-bold transition";
+      tabUpload.className = "py-2 rounded-lg text-slate-400 hover:text-white transition";
+      viewPaste.classList.remove('hidden');
+      viewUpload.classList.add('hidden');
+    });
+
+    // File Input Handler
+    document.getElementById('jsonFileInput').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = function(evt) {
         try {
-          rawComments = JSON.parse(evt.target.result);
-          buildPool();
+          const parsed = JSON.parse(evt.target.result);
+          if (!Array.isArray(parsed)) throw new Error('Format must be an array');
+          rawComments = parsed;
+          buildTicketsPool();
+          showToast(`成功匯入 ${rawComments.length} 筆留言！`);
         } catch (err) {
-          alert('JSON 解析失敗，請確認檔案格式是否正確！');
+          alert('JSON 解析失敗，請確認是由抓取腳本生成的陣列格式！');
         }
       };
       reader.readAsText(file);
     });
 
-    document.getElementById('platformMode').addEventListener('change', buildPool);
-    document.getElementById('minMentions').addEventListener('input', buildPool);
+    // Paste & Mock Handlers
+    document.getElementById('loadMockBtn').addEventListener('click', () => {
+      rawComments = [
+        { username: "shinee_world_key", text: "集氣台北開唱！本命金起範 #帽子 @shinee_shawol @keyland_fan", mentions: ["shinee_shawol", "keyland_fan"] },
+        { username: "pearl_aqua_08", text: "一定要唱Sherlock啊啊啊 #風扇 @onew_lee", mentions: ["onew_lee"] },
+        { username: "key_freak_tw", text: "好想要娃包帶去演唱會 #娃包 @friend_a", mentions: ["friend_a"] },
+        { username: "key_freak_tw", text: "再留一次！幫朋友一起抽 #娃包 @friend_b @friend_c", mentions: ["friend_b", "friend_c"] },
+        { username: "taemin_cheese", text: "祝大家神席！希望抽到車折神社御守 @minho_flaming", mentions: ["minho_flaming"] },
+        { username: "onew_voice_love", text: "五閃合體就是最棒的！御守集氣！ @shawol_tw", mentions: ["shawol_tw"] },
+        { username: "jonghyun_poet", text: "閃閃永遠在一起 💎 御守必中！ @friend_d", mentions: ["friend_d"] },
+        { username: "minho_running", text: "熱情爆棚！抽八巡風扇現場吹！ #風扇 @friend_e", mentions: ["friend_e"] }
+      ];
+      buildTicketsPool();
+      showToast('已載入閃窩示範留言名單！');
+    });
 
-    function buildPool() {
-      if (!rawComments || rawComments.length === 0) return;
-      const mode = document.getElementById('platformMode').value;
-      const minMentions = parseInt(document.getElementById('minMentions').value, 10) || 0;
+    document.getElementById('parsePasteBtn').addEventListener('click', () => {
+      const lines = document.getElementById('pasteInput').value.split('\n').filter(l => l.trim());
+      if (lines.length === 0) return alert('請先輸入文字名單！');
+      rawComments = lines.map(line => {
+        const parts = line.trim().split(/\s+/);
+        const username = parts[0].replace('@', '');
+        const mentions = [...line.matchAll(/@([\w._]+)/g)].map(m => m[1].toLowerCase()).filter(m => m !== username.toLowerCase());
+        return { username, text: line, mentions };
+      });
+      buildTicketsPool();
+      showToast(`已套用 ${rawComments.length} 筆自訂名單！`);
+    });
 
+    // Pool Rules Engine
+    document.querySelectorAll('input[name="platformMode"]').forEach(r => r.addEventListener('change', buildTicketsPool));
+    document.getElementById('keywordFilterInput').addEventListener('input', updatePoolStatus);
+    document.getElementById('winnerCountInput').addEventListener('input', updatePoolStatus);
+    document.getElementById('prizeTitleInput').addEventListener('input', (e) => {
+      document.getElementById('currentStagePrize').innerText = e.target.value.trim() || '神秘大獎';
+    });
+    document.getElementById('excludePrevWinners').addEventListener('change', updatePoolStatus);
+
+    function buildTicketsPool() {
+      const mode = document.querySelector('input[name="platformMode"]:checked').value;
       validTickets = [];
 
       if (mode === 'threads') {
         const seen = new Set();
         rawComments.forEach(item => {
-          const user = (item.username || '').trim();
-          if (user && !seen.has(user)) {
-            seen.add(user);
+          const u = (item.username || '').trim();
+          if (u && !seen.has(u)) {
+            seen.add(u);
             validTickets.push({
-              username: user,
+              username: u,
               text: item.text || '',
-              mentions: item.mentions || []
+              mentions: item.mentions || [],
+              validMentions: item.mentions || []
             });
           }
         });
       } else {
         const userTaggedHistory = new Map();
         rawComments.forEach(comment => {
-          const user = (comment.username || '').trim();
-          if (!user) return;
+          const u = (comment.username || '').trim();
+          if (!u) return;
+          const mentions = (comment.mentions || []).filter(m => m && m.toLowerCase() !== u.toLowerCase());
 
-          const mentions = (comment.mentions || []).filter(m => m && m.toLowerCase() !== user.toLowerCase());
-
-          if (!userTaggedHistory.has(user)) {
-            userTaggedHistory.set(user, new Set());
-          }
-          const history = userTaggedHistory.get(user);
+          if (!userTaggedHistory.has(u)) userTaggedHistory.set(u, new Set());
+          const history = userTaggedHistory.get(u);
           const newMentions = mentions.filter(m => !history.has(m));
 
-          if (newMentions.length >= minMentions) {
+          if (newMentions.length >= 1) {
             newMentions.forEach(m => history.add(m));
             validTickets.push({
-              username: user,
+              username: u,
               text: comment.text || '',
+              mentions: comment.mentions || [],
               validMentions: newMentions
             });
           }
         });
       }
 
-      document.getElementById('ticketCountBadge').innerText = `${validTickets.length} 張有效籤`;
+      const uniqueUsers = new Set(rawComments.map(c => (c.username || '').trim()).filter(Boolean));
+      document.getElementById('statRawCount').innerText = rawComments.length;
+      document.getElementById('statUserCount').innerText = uniqueUsers.size;
+      document.getElementById('statTicketCount').innerText = validTickets.length;
+      document.getElementById('poolBadge').innerText = `籤池：${validTickets.length}`;
+
+      updatePoolStatus();
     }
 
-    document.getElementById('startDrawBtn').addEventListener('click', function() {
-      if (validTickets.length === 0) return alert('籤池目前沒有有效名單，請先上傳 JSON 檔！');
-
-      const prize = document.getElementById('prizeName').value.trim() || '神秘大獎';
-      const count = parseInt(document.getElementById('drawCount').value, 10) || 1;
-      const keyword = document.getElementById('filterKeyword').value.trim().toLowerCase();
+    function getFilteredPool() {
+      const keyword = document.getElementById('keywordFilterInput').value.trim().toLowerCase();
       const excludePrev = document.getElementById('excludePrevWinners').checked;
-
       let pool = [...validTickets];
 
       if (excludePrev && winnersHistory.length > 0) {
         const prevUsers = new Set(winnersHistory.map(w => w.username));
-        pool = pool.filter(ticket => !prevUsers.has(ticket.username));
+        pool = pool.filter(t => !prevUsers.has(t.username));
       }
 
       if (keyword) {
-        pool = pool.filter(ticket => ticket.text && ticket.text.toLowerCase().includes(keyword));
+        pool = pool.filter(t => t.text && t.text.toLowerCase().includes(keyword));
       }
 
-      if (pool.length === 0) {
-        return alert('在目前的條件篩選下，沒有符合資格的候選者！');
-      }
+      return pool;
+    }
 
-      for (let i = pool.length - 1; i > 0; i--) {
+    function updatePoolStatus() {
+      const pool = getFilteredPool();
+      const count = parseInt(document.getElementById('winnerCountInput').value, 10) || 1;
+      document.getElementById('statusEligibleCount').innerText = pool.length;
+      document.getElementById('statusDrawCount').innerText = count;
+    }
+
+    // Lottery Animation & Adaptive Winner Grid Showcase
+    document.getElementById('startDrawBtn').addEventListener('click', function() {
+      if (isDrawing) return;
+      const pool = getFilteredPool();
+      const count = parseInt(document.getElementById('winnerCountInput').value, 10) || 1;
+      const prize = document.getElementById('prizeTitleInput').value.trim() || '神秘大獎';
+
+      if (validTickets.length === 0) return alert('籤池目前沒有有效名單，請先匯入 JSON 檔或示範名單！');
+      if (pool.length === 0) return alert('在目前的條件篩選下，沒有符合資格的候選者！');
+
+      isDrawing = true;
+      const stage = document.getElementById('stageContainer');
+      document.getElementById('currentStagePrize').innerText = prize;
+
+      // Fisher-Yates Shuffle
+      const shuffled = [...pool];
+      for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
+      // Pick distinct user winners
       const chosenWinners = [];
       const chosenUsers = new Set();
-
-      for (const ticket of pool) {
+      for (const ticket of shuffled) {
         if (!chosenUsers.has(ticket.username)) {
           chosenWinners.push(ticket);
           chosenUsers.add(ticket.username);
@@ -281,96 +585,96 @@
         }
       }
 
-      runAnimationAndDisplay(prize, chosenWinners);
-    });
-
-    function runAnimationAndDisplay(prize, winners) {
-      document.getElementById('currentPrizeBadge').innerText = prize;
-      const stage = document.getElementById('stageContainer');
-
-      let counter = 0;
+      // Slot rolling effect
+      let steps = 0;
       const interval = setInterval(() => {
+        const randomUser = validTickets[Math.floor(Math.random() * validTickets.length)].username;
         stage.innerHTML = `
-          <div class="text-center py-10 animate-pulse">
-            <span class="text-xs text-aqua tracking-widest font-mono">LUCKY DRAW RUNNING...</span>
-            <div class="text-2xl md:text-3xl font-black text-slate-300 mt-2">
-              🎲 @${validTickets[Math.floor(Math.random() * validTickets.length)].username}
+          <div class="text-center py-8 animate-pulse">
+            <span class="text-xs text-pearl-400 tracking-widest font-mono font-bold">LUCKY DRAW RUNNING...</span>
+            <div class="text-2xl md:text-3xl font-black text-slate-200 mt-2 font-mono">
+              🎲 @${randomUser}
             </div>
           </div>
         `;
-        counter++;
-        if (counter > 15) {
+        steps++;
+        if (steps > 16) {
           clearInterval(interval);
-          renderStageWinners(prize, winners);
+          isDrawing = false;
+          renderStageWinners(prize, chosenWinners);
         }
       }, 70);
-    }
+    });
 
-    // 依中獎人數自適應渲染排版（1 人巨幕、2-4 人雙欄、5 人以上三欄）
+    // Render Stage Winners with Adaptive Layout
     function renderStageWinners(prize, winners) {
       const stage = document.getElementById('stageContainer');
-      
+
+      // Confetti burst
       confetti({
-        particleCount: 90,
+        particleCount: 100,
         spread: 80,
         origin: { y: 0.6 },
-        colors: ['#79E2D0', '#3BBFA8', '#ffffff', '#FFD700']
+        colors: ['#79E2D0', '#2dd4bf', '#00B2A9', '#ffffff', '#FFD700']
       });
 
       if (winners.length === 1) {
-        // 1 人：超大焦點巨幕
+        // 1 Winner: Hero showcase
         const w = winners[0];
         stage.innerHTML = `
-          <div class="text-center w-full px-2 py-2">
-            <span class="text-xs px-3 py-1 bg-teal-500/20 text-aqua rounded-full font-semibold border border-teal-500/30">CONGRATULATIONS!</span>
-            <h3 class="text-3xl md:text-4xl font-extrabold text-aqua mt-2.5 break-all tracking-wide">
+          <div class="text-center w-full px-2 py-3">
+            <span class="text-xs px-3 py-1 bg-pearl-500/20 text-pearl-300 rounded-full font-bold border border-pearl-500/40 tracking-wider">
+              CONGRATULATIONS!
+            </span>
+            <h3 class="text-3xl md:text-4xl font-extrabold text-pearl-400 mt-2.5 break-all tracking-wide pearl-text-glow font-mono">
               @${w.username}
             </h3>
-            <div class="mt-3.5 max-w-lg mx-auto bg-slate-850 bg-slate-800/80 border border-slate-700/80 p-3.5 rounded-xl text-left text-xs text-slate-300 shadow-inner">
+            <div class="mt-3.5 max-w-lg mx-auto bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl text-left text-xs text-slate-300 shadow-inner">
               <span class="text-slate-400 block mb-1">💬 得獎留言：</span>
               <p class="break-words line-clamp-3">${w.text || '(無內文)'}</p>
-              ${w.validMentions && w.validMentions.length ? `<span class="mt-2 block text-teal-400 font-mono text-[11px]">標記好友：@${w.validMentions.join(' @')}</span>` : ''}
+              ${w.validMentions && w.validMentions.length ? `<span class="mt-2 block text-pearl-400 font-mono text-[11px]">標記好友：@${w.validMentions.join(' @')}</span>` : ''}
             </div>
           </div>
         `;
       } else {
-        // 多人：判斷排版欄數（2~4 人用雙欄 grid-cols-2；5 人以上用三欄 grid-cols-1 md:grid-cols-3）
-        const gridColsClass = winners.length <= 4 
+        // Multiple Winners: Adaptive Responsive Grid
+        const gridClass = winners.length <= 4 
           ? "grid grid-cols-1 sm:grid-cols-2 gap-2.5" 
           : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2";
 
         const cardsHtml = winners.map((w, idx) => `
-          <div class="bg-slate-800/80 border border-slate-700/90 rounded-xl p-3 flex flex-col justify-between shadow-md">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-col justify-between shadow-md">
             <div>
               <div class="flex items-center justify-between gap-1 mb-1.5">
-                <span class="text-xs font-bold text-aqua break-all">#${idx + 1} @${w.username}</span>
-                <span class="text-[10px] text-teal-300/80 font-mono">WIN</span>
+                <span class="text-xs font-bold text-pearl-400 break-all font-mono">#${idx + 1} @${w.username}</span>
+                <span class="text-[10px] text-pearl-300/80 font-mono">WIN</span>
               </div>
-              <p class="text-[11px] text-slate-300 line-clamp-2 bg-slate-900/70 p-2 rounded border border-slate-800">
+              <p class="text-[11px] text-slate-300 line-clamp-2 bg-slate-950/70 p-2 rounded border border-slate-800">
                 ${w.text || '(無內文)'}
               </p>
             </div>
-            ${w.validMentions && w.validMentions.length ? `<span class="mt-1.5 block text-teal-400 font-mono text-[10px] truncate">@${w.validMentions.join(' @')}</span>` : ''}
+            ${w.validMentions && w.validMentions.length ? `<span class="mt-1.5 block text-pearl-400 font-mono text-[10px] truncate">@${w.validMentions.join(' @')}</span>` : ''}
           </div>
         `).join('');
 
         stage.innerHTML = `
           <div class="w-full">
             <div class="text-center mb-2.5">
-              <span class="text-xs px-3 py-0.5 bg-teal-500/20 text-aqua rounded-full font-semibold border border-teal-500/30">
+              <span class="text-xs px-3 py-0.5 bg-pearl-500/20 text-pearl-300 rounded-full font-semibold border border-pearl-500/40">
                 恭喜以下 ${winners.length} 位幸運兒獲得【${prize}】！
               </span>
             </div>
-            <div class="${gridColsClass} max-h-[250px] overflow-y-auto custom-scroll pr-1">
+            <div class="${gridClass} max-h-[260px] overflow-y-auto pr-1">
               ${cardsHtml}
             </div>
           </div>
         `;
       }
 
-      // 寫入清冊
+      // Append to Ledger
       winners.forEach(w => {
         winnersHistory.unshift({
+          id: Date.now() + Math.random(),
           prize: prize,
           username: w.username,
           text: w.text || '',
@@ -380,50 +684,64 @@
       });
 
       renderHistory();
+      updatePoolStatus();
+      lucide.createIcons();
     }
 
+    // Ledger Management
     function renderHistory() {
-      const listEl = document.getElementById('winnersHistoryList');
-      document.getElementById('winnerBadge').innerText = `共 ${winnersHistory.length} 位`;
+      const container = document.getElementById('winnersContainer');
+      document.getElementById('winnerRecordCount').innerText = winnersHistory.length;
 
       if (winnersHistory.length === 0) {
-        listEl.innerHTML = `<p class="text-xs text-slate-500 text-center py-8">尚無開獎紀錄</p>`;
+        container.innerHTML = `
+          <div id="emptyWinnersNotice" class="text-center py-10 text-slate-500 text-xs">
+            尚無開獎紀錄，請在上方點擊「開始抽出幸運閃窩」！
+          </div>
+        `;
         return;
       }
 
-      listEl.innerHTML = winnersHistory.map((item, index) => `
-        <div class="p-3 bg-slate-800/60 border border-slate-700/60 rounded-xl flex items-start justify-between gap-3 text-xs">
+      container.innerHTML = winnersHistory.map(item => `
+        <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl flex items-start justify-between gap-3 text-xs hover:border-pearl-500/30 transition">
           <div class="space-y-1 flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2 py-0.5 bg-teal-950 text-aqua border border-teal-500/30 rounded font-medium text-[11px]">${item.prize}</span>
-              <span class="font-bold text-white">@${item.username}</span>
+              <span class="px-2 py-0.5 bg-pearl-950 text-pearl-300 border border-pearl-500/30 rounded font-medium text-[11px]">${item.prize}</span>
+              <span class="font-bold text-white font-mono">@${item.username}</span>
               <span class="text-[10px] text-slate-500 font-mono">${item.timestamp}</span>
             </div>
             <p class="text-slate-300 text-[11px] break-words truncate">${item.text}</p>
           </div>
-          <button onclick="removeHistoryItem(${index})" class="text-slate-500 hover:text-rose-400 p-1">✕</button>
+          <button onclick="removeHistoryItem(${item.id})" class="text-slate-500 hover:text-rose-400 p-1 transition" title="移除此得獎者">✕</button>
         </div>
       `).join('');
     }
 
-    function removeHistoryItem(index) {
-      winnersHistory.splice(index, 1);
+    window.removeHistoryItem = function(id) {
+      winnersHistory = winnersHistory.filter(w => w.id !== id);
       renderHistory();
-    }
+      updatePoolStatus();
+      showToast('已移除該得獎紀錄！');
+    };
 
-    function clearHistory() {
-      if (confirm('確定要清空所有得獎名單與紀錄嗎？')) {
+    document.getElementById('clearWinnersBtn').addEventListener('click', () => {
+      if (winnersHistory.length === 0) return;
+      if (confirm('確定要清空所有已開出的得獎名單與紀錄嗎？')) {
         winnersHistory = [];
         renderHistory();
+        updatePoolStatus();
         document.getElementById('stageContainer').innerHTML = `
-          <div class="text-slate-600 text-5xl mb-2">💎</div>
-          <p class="text-slate-400 text-sm">請於左側設定並按下「開始隨機抽出」</p>
+          <div id="waitingPlaceholder" class="text-center py-6">
+            <div class="text-4xl mb-2">💎</div>
+            <div class="text-sm font-semibold text-pearl-300 font-mono">@READY_TO_SHINE</div>
+            <p class="text-xs text-slate-500 mt-1 italic">「在左側載入資料，按下開始抽獎！」</p>
+          </div>
         `;
-        document.getElementById('currentPrizeBadge').innerText = '等待開獎';
+        showToast('得獎清冊已重設清空！');
       }
-    }
+    });
 
-    function copyAnnouncement() {
+    document.getElementById('copyWinnersBtn').addEventListener('click', () => {
       if (winnersHistory.length === 0) return alert('目前尚無中獎名單可複製！');
 
       const byPrize = {};
@@ -439,9 +757,12 @@
       text += `\n📌 請以上得獎者於 48 小時內私訊寄送資訊，逾期視同放棄。再次感謝大家！🩵`;
 
       navigator.clipboard.writeText(text).then(() => {
-        alert('得獎名單文案已複製到剪貼簿，可直接貼到貼文留言公布！');
+        showToast('得獎名單串文已複製到剪貼簿！');
       });
-    }
+    });
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
   </script>
 </body>
 </html>
