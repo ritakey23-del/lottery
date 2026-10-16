@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>夢想音樂節 - 3D 視野模擬與座位雷達</title>
+    <!-- 引入 Three.js 與 OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 0; overflow-x: hidden; }
+        
+        /* 雙欄版面配置 */
+        .app-container { display: flex; height: 100vh; width: 100vw; }
+        .sidebar { width: 420px; background: #1a1a1a; padding: 20px; overflow-y: auto; border-right: 1px solid #333; z-index: 10; display: flex; flex-direction: column; gap: 15px; }
+        .viewport-3d { flex: 1; position: relative; background: #050505; }
+        #canvas3d { width: 100%; height: 100%; display: block; }
+
+        /* 3D 視角 HUD 覆蓋層 */
+        .hud-overlay { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 12px 18px; border-radius: 8px; font-size: 13px; line-height: 1.5; pointer-events: none; border: 1px solid #444; }
+        .fov-toggle { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 8px; }
+        .fov-btn { background: rgba(30,30,30,0.85); color: #fff; border: 1px solid #555; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .fov-btn:hover { background: #444; }
+
+        /* UI 元件樣式 */
+        h2 { margin: 0; font-size: 20px; }
+        .subtitle { font-size: 13px; color: #f39c12; margin-top: 5px; }
+        .box { background: #242424; padding: 15px; border-radius: 8px; border: 1px solid #333; }
+        .input-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        input[type="number"], select { padding: 8px; border-radius: 4px; border: 1px solid #555; background: #333; color: #fff; font-size: 14px; }
+        input[type="number"] { width: 70px; text-align: center; }
+        button.action-btn { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; }
+        button.action-btn:hover { background: #45a049; }
+
+        /* 評分卡片 */
+        .result-card { padding: 12px; border-radius: 6px; background: #2e2e2e; margin-top: 10px; border-left: 4px solid #00BFFF; }
+        .score-display { font-size: 20px; font-weight: bold; margin: 6px 0; }
+        .final-rank { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #000; margin-bottom: 8px; }
+        .advice-item { display: block; font-size: 12px; color: #ccc; margin-top: 4px; }
+
+        @media (max-width: 900px) {
+            .app-container { flex-direction: column-reverse; height: auto; }
+            .sidebar { width: 100%; height: auto; }
+            .viewport-3d { height: 60vh; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 左側控制面板 -->
+    <div class="sidebar">
+        <div>
+            <h2>夢想音樂節 - 3D 視角雷達</h2>
+            <div class="subtitle">輸入座位排號，即刻切換第 1 人稱舞台真實視野</div>
+        </div>
+
+        <div class="box">
+            <div class="input-group">
+                <label>選擇排法模式</label>
+                <select id="layoutSelect">
+                    <option value="decreasing">遞減排法</option>
+                    <option value="10x10">10x10 排法</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>模擬身高 (站立眼高)</label>
+                <div>
+                    <input type="number" id="viewerHeight" value="165" min="130" max="210"> cm
+                </div>
+            </div>
+            <div class="input-group">
+                <label>目標座位</label>
+                <div>
+                    第 <input type="number" id="rowA" value="5" min="1" max="43"> 排
+                    <input type="number" id="seatA" value="54" min="1" max="108"> 號
+                </div>
+            </div>
+            <button class="action-btn" onclick="applySeatView()">進入座位 3D 視角</button>
+        </div>
+
+        <!-- 即時分析結果卡片 -->
+        <div id="resultBox" class="result-card" style="display: none;"></div>
+        
+        <div style="font-size: 12px; color: #777; line-height: 1.5;">
+            💡 提示：在 3D 畫面中<b>按住滑鼠左鍵拖曳</b>可旋轉視角環顧四周，<b>滾輪</b>可微調縮放。點擊右下角按鈕可切換手機鏡頭焦距。
+        </div>
+    </div>
+
+    <!-- 右側 3D 渲染畫面 -->
+    <div class="viewport-3d" id="viewport">
+        <canvas id="canvas3d"></canvas>
+        <div class="hud-overlay" id="hudInfo">
+            目前視角：全景預覽中<br>
+            請從左側面板輸入排數並點擊切換
+        </div>
+        <div class="fov-toggle">
+            <button class="fov-btn" onclick="setFOV(70)">1× 主鏡頭</button>
+            <button class="fov-btn" onclick="setFOV(95)">0.5× 超廣角</button>
+            <button class="fov-btn" onclick="resetToOverview()">全場俯瞰</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ==========================================================================
+       1. 幾何定位與數值計算模組 (繼承自原先算法)
+       ========================================================================== */
+    const totalRows = 43;
+    const centerAisle = 54;
+
+    function calculateCoordinates(r, s, layout) {
+        let v_aisles = layout === 'decreasing' ? [15, 29, 42, 66, 79, 93] : [4, 14, 24, 34, 44, 64, 74, 84, 94, 104];
+        
+        // Z 軸深度 (單位：公尺)
+        let z = 3 + (r - 1) * 0.9;
+        if (r > 10) z += 2;
+        if (r > 20) z += 2;
+        if (r > 24) z += 3;
+        if (r > 34) z += 2;
+
+        // X 軸水平位移 (左右兩側，54號靠近中線)
+        let x = 0;
+        if (s <= 54) {
+            for (let i = s; i < 54; i++) { x += 0.5; if (v_aisles.includes(i)) x += 1.0; }
+            x += 0.25;
+            x = -x; // 左側為負
+        } else {
+            for (let i = 55; i < s; i++) { x += 0.5; if (v_aisles.includes(i)) x += 1.0; }
+            x += 0.25; // 右側為正
+        }
+
+        // 看台階梯高度 (Y 軸)：每排往後稍高 0.08m
+        let y = (r - 1) * 0.08;
+
+        return { x, y, z };
+    }
+
+    function evaluateSeat(r, s, coords) {
+        let distance = Math.sqrt(coords.x * coords.x + coords.z * coords.z);
+        let angle = Math.atan(Math.abs(coords.x) / coords.z) * (180 / Math.PI);
+        let isMainStage = (s >= 40 && s <= 69);
+
+        let scoreDist = Math.max(0, 100 - (distance / 50) * 60); 
+        let scoreAngle = Math.max(0, 100 - (angle / 60) * 55);
+        if (isMainStage) scoreAngle = Math.min(100, scoreAngle + 12);
+
+        let final100 = Math.round((Math.min(scoreDist, scoreAngle) * 0.7) + (Math.max(scoreDist, scoreAngle) * 0.3));
+        final100 = Math.min(100, Math.max(0, final100));
+
+        let finalRank = "S 級【優質視野】"; let rankColor = "#1E90FF";
+        if (final100 >= 85) { finalRank = "SSS 級【天選神位】"; rankColor = "#FFD700"; }
+        else if (final100 >= 75) { finalRank = "SS 級【完美沉浸】"; rankColor = "#FF8C00"; }
+        else if (final100 < 55) { finalRank = "B 級【輔助出動】"; rankColor = "#9370DB"; }
+
+        return { distance, angle, final100, finalRank, rankColor };
+    }
+
+    /* ==========================================================================
+       2. Three.js 3D 舞台與場館建構
+       ========================================================================== */
+    let scene, camera, renderer, controls;
+    let seatMeshGroup = new THREE.Group();
+    let stageTarget = new THREE.Vector3(0, 2.5, 0); // 舞台中心焦點
+
+    function init3D() {
+        const container = document.getElementById('viewport');
+        const canvas = document.getElementById('canvas3d');
+
+        // Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0f);
+        scene.fog = new THREE.FogExp2(0x0a0a0f, 0.012);
+
+        // Camera
+        camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 200);
+        camera.position.set(0, 30, 60);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+
+        // Controls
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.copy(stageTarget);
+
+        // 燈光系統
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const stageSpot = new THREE.SpotLight(0xffd700, 2.5, 60, Math.PI / 4, 0.3);
+        stageSpot.position.set(0, 15, 0);
+        stageSpot.target.position.set(0, 0, 0);
+        scene.add(stageSpot);
+        scene.add(stageSpot.target);
+
+        // 舞台雷射氣氛燈 (藍/粉)
+        const leftLight = new THREE.PointLight(0x00ffff, 2, 40);
+        leftLight.position.set(-15, 6, 2);
+        scene.add(leftLight);
+
+        const rightLight = new THREE.PointLight(0xff007f, 2, 40);
+        rightLight.position.set(15, 6, 2);
+        scene.add(rightLight);
+
+        // 建置地面與舞台幾何體
+        buildEnvironment();
+        buildSeatCloud();
+
+        window.addEventListener('resize', onWindowResize);
+        animate();
+    }
+
+    function buildEnvironment() {
+        // 主地板
+        const floorGeo = new THREE.PlaneGeometry(120, 120);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 0.8 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        // 主舞台 (主台 + 延伸台)
+        const stageMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 });
+        const mainStage = new THREE.Mesh(new THREE.BoxGeometry(24, 2, 10), stageMat);
+        mainStage.position.set(0, 1, 0);
+        scene.add(mainStage);
+
+        // LED 背景大螢幕
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x3388ff });
+        const mainScreen = new THREE.Mesh(new THREE.PlaneGeometry(20, 8), screenMat);
+        mainScreen.position.set(0, 6, -4.9);
+        scene.add(mainScreen);
+
+        // 轉播左右雙側大螢幕
+        const sideScreenGeo = new THREE.PlaneGeometry(8, 5);
+        const leftScreen = new THREE.Mesh(sideScreenGeo, screenMat);
+        leftScreen.position.set(-18, 5, 2);
+        leftScreen.rotation.y = Math.PI / 8;
+        scene.add(leftScreen);
+
+        const rightScreen = new THREE.Mesh(sideScreenGeo, screenMat);
+        rightScreen.position.set(18, 5, 2);
+        rightScreen.rotation.y = -Math.PI / 8;
+        scene.add(rightScreen);
+
+        // 象徵歌手的舞台發光物件
+        const performerGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.8, 16);
+        const performerMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const performer = new THREE.Mesh(performerGeo, performerMat);
+        performer.position.set(0, 2.9, 0);
+        scene.add(performer);
+
+        // 音控台與延遲喇叭塔 (Delay Tower)
+        const towerGeo = new THREE.BoxGeometry(1.5, 7, 1.5);
+        const towerMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const towerLeft = new THREE.Mesh(towerGeo, towerMat);
+        towerLeft.position.set(-10, 3.5, 22);
+        scene.add(towerLeft);
+
+        const towerRight = new THREE.Mesh(towerGeo, towerMat);
+        towerRight.position.set(10, 3.5, 22);
+        scene.add(towerRight);
+    }
+
+    function buildSeatCloud() {
+        // 使用輕量幾何體呈現全場座位
+        scene.remove(seatMeshGroup);
+        seatMeshGroup = new THREE.Group();
+
+        const seatGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+        const defaultMat = new THREE.MeshBasicMaterial({ color: 0x444455 });
+        const newZoneMat = new THREE.MeshBasicMaterial({ color: 0xff99bb });
+
+        for (let r = 1; r <= totalRows; r += 2) { // 隔行抽樣提升瀏覽器渲染效能
+            for (let s = 15; s <= 94; s += 2) {
+                const coords = calculateCoordinates(r, s, 'decreasing');
+                const isNewZone = (s <= 20 || s >= 89);
+                const mesh = new THREE.Mesh(seatGeo, isNewZone ? newZoneMat : defaultMat);
+                mesh.position.set(coords.x, coords.y + 0.2, coords.z);
+                seatMeshGroup.add(mesh);
+            }
+        }
+        scene.add(seatMeshGroup);
+    }
+
+    /* ==========================================================================
+       3. 互動邏輯：視角轉移與相機平滑切換
+       ========================================================================== */
+    function applySeatView() {
+        const r = parseInt(document.getElementById('rowA').value);
+        const s = parseInt(document.getElementById('seatA').value);
+        const heightCm = parseFloat(document.getElementById('viewerHeight').value) || 165;
+        const eyeHeight = (heightCm / 100); // 換算成公尺
+
+        if (r < 1 || r > totalRows || s < 1 || s > 108) {
+            alert('請輸入有效範圍內的座位 (排: 1~43, 號: 1~108)');
+            return;
+        }
+
+        const layout = document.getElementById('layoutSelect').value;
+        const coords = calculateCoordinates(r, s, layout);
+        const stats = evaluateSeat(r, s, coords);
+
+        // 將攝影機推移至座位眼高位置
+        camera.position.set(coords.x, coords.y + eyeHeight, coords.z);
+        controls.target.copy(stageTarget);
+        controls.update();
+
+        // 更新 HUD 資訊
+        document.getElementById('hudInfo').innerHTML = `
+            <b>第 ${r} 排 ${s} 號</b> 視角<br>
+            舞台距離：${stats.distance.toFixed(1)} m ｜ 視角偏角：${stats.angle.toFixed(1)}°<br>
+            眼高：${(coords.y + eyeHeight).toFixed(2)} m
+        `;
+
+        // 更新分析卡片
+        const resultBox = document.getElementById('resultBox');
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = `
+            <div style="font-size: 15px; font-weight: bold;">第 ${r} 排 ${s} 號 · 分析診斷</div>
+            <div class="score-display" style="color: #00BFFF;">評分：${stats.final100} 分</div>
+            <span class="final-rank" style="background:${stats.rankColor};">${stats.finalRank}</span>
+            <span class="advice-item">📐 視距約 <b>${stats.distance.toFixed(1)}m</b> (舞台置中率高)</span>
+            <span class="advice-item">👁️ 水平偏角 <b>${stats.angle.toFixed(1)}°</b></span>
+        `;
+    }
+
+    function setFOV(fovVal) {
+        camera.fov = fovVal;
+        camera.updateProjectionMatrix();
+    }
+
+    function resetToOverview() {
+        camera.position.set(0, 30, 60);
+        camera.fov = 60;
+        camera.updateProjectionMatrix();
+        controls.target.copy(stageTarget);
+        controls.update();
+        document.getElementById('hudInfo').innerHTML = `目前視角：全場俯瞰預覽`;
+    }
+
+    function onWindowResize() {
+        const container = document.getElementById('viewport');
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    window.onload = init3D;
+</script>
+</body>
+</html>
