@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>💎 祭品文抽獎系統</title>
+  <title>💎 SHINee 祭品文抽獎系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
@@ -30,37 +30,20 @@
     }
   </style>
 </head>
-  <script>
-  (function() {
-    const MY_SECRET = "2026"; // 👈 在這裡設定你自己的專屬密碼
-    
-    // 檢查本次分頁是否已經輸入過密碼（避免重新整理一直跳）
-    if (sessionStorage.getItem("auth_pass") !== "true") {
-      const input = prompt("💎 請輸入存取金鑰：");
-      if (input === MY_SECRET) {
-        sessionStorage.setItem("auth_pass", "true");
-      } else {
-        alert("密碼錯誤，拒絕存取！");
-        document.body.innerHTML = "<h2 style='color:#fff;text-align:center;margin-top:20%'>🔒 Access Denied</h2>";
-        window.stop();
-      }
-    }
-  })();
-</script>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center p-4 md:p-8 font-sans selection:bg-[#79E2D0] selection:text-slate-900">
 
   <!-- Header -->
-  <header class="text-center mb-8 max-w-xl">
+  <header class="text-center mb-6 max-w-xl">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-teal-500/30 bg-teal-950/40 text-aqua text-xs font-semibold mb-3">
       <span>💎 祭品兌現中</span> • <span>Pearl Aqua Lucky Draw</span>
     </div>
     <h1 class="text-3xl md:text-4xl font-extrabold text-white tracking-wide flex items-center justify-center gap-2">
-      祭品文開獎面板
+      SHINee 祭品文開獎面板
     </h1>
     <p class="text-xs text-slate-400 mt-2">支援 Threads (一人一籤) 與 Instagram (可重複留言需標記不同人) 自動驗證去重</p>
   </header>
 
-  <main class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6">
+  <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6">
 
     <!-- 左側面板：控制與設定區 (5 cols) -->
     <section class="lg:col-span-5 flex flex-col gap-5">
@@ -128,7 +111,7 @@
 
         <div class="flex items-center gap-2 mb-4">
           <input type="checkbox" id="excludePrevWinners" checked class="rounded bg-slate-800 border-slate-700 text-teal-500 focus:ring-0 cursor-pointer">
-          <label for="excludePrevWinners" class="text-xs text-slate-300 cursor-pointer select-none">排除先前已中獎帳號（避免一人全包大獎）</label>
+          <label for="excludePrevWinners" class="text-xs text-slate-300 cursor-pointer select-none">排除先前已中獎帳號（避免重複中獎）</label>
         </div>
 
         <button id="startDrawBtn" class="w-full py-3.5 bg-gradient-to-r from-teal-400 to-[#3BBFA8] text-slate-950 font-bold rounded-xl transition duration-200 hover:opacity-95 active:scale-[0.99] glow-aqua text-sm flex items-center justify-center gap-2 shadow-lg">
@@ -140,9 +123,9 @@
     <!-- 右側面板：開獎展示與得獎名單區 (7 cols) -->
     <section class="lg:col-span-7 flex flex-col gap-5">
       
-      <!-- 動態大螢幕（抽 1 人巨幕 / 抽多人網格展示） -->
-      <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden min-h-[300px] flex flex-col">
-        <div class="absolute -top-12 -right-12 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <!-- 動態大螢幕（支援 1 人巨幕、2-4 人雙欄、5 人以上三欄卡匣） -->
+      <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden min-h-[340px] flex flex-col">
+        <div class="absolute -top-12 -right-12 w-44 h-44 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
         
         <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
           <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -154,7 +137,7 @@
           </span>
         </div>
 
-        <!-- 開獎展示容器（預設等待狀態） -->
+        <!-- 開獎展示容器 -->
         <div id="stageContainer" class="flex-1 flex flex-col items-center justify-center py-4">
           <div class="text-slate-600 text-5xl mb-2">💎</div>
           <p class="text-slate-400 text-sm">請於左側載入資料並按下「開始隨機抽出」</p>
@@ -169,12 +152,12 @@
             <span id="winnerBadge" class="text-[11px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-normal">共 0 位</span>
           </h2>
           <div class="flex gap-2">
-            <button onclick="copyAnnouncement()" class="text-xs text-aqua hover:underline px-2 py-1 bg-slate-800/80 rounded-lg border border-slate-700">複製公告文案</button>
-            <button onclick="clearHistory()" class="text-xs text-rose-400 hover:underline px-2 py-1 bg-slate-800/80 rounded-lg border border-slate-700">重設紀錄</button>
+            <button onclick="copyAnnouncement()" class="text-xs text-aqua hover:underline px-2.5 py-1 bg-slate-800/80 rounded-lg border border-slate-700">複製公告文案</button>
+            <button onclick="clearHistory()" class="text-xs text-rose-400 hover:underline px-2.5 py-1 bg-slate-800/80 rounded-lg border border-slate-700">重設紀錄</button>
           </div>
         </div>
 
-        <div id="winnersHistoryList" class="flex-1 overflow-y-auto max-h-[320px] custom-scroll space-y-2.5 pr-1">
+        <div id="winnersHistoryList" class="flex-1 overflow-y-auto max-h-[280px] custom-scroll space-y-2.5 pr-1">
           <p class="text-xs text-slate-500 text-center py-8">尚無開獎紀錄</p>
         </div>
       </div>
@@ -186,15 +169,13 @@
   <script>
     let rawComments = [];
     let validTickets = [];
-    let winnersHistory = []; // { prize, user, text, mentions, timestamp }
+    let winnersHistory = [];
 
-    // 設定捷徑獎項
     function setPrize(name, count) {
       document.getElementById('prizeName').value = name;
       document.getElementById('drawCount').value = count;
     }
 
-    // 檔案讀取
     document.getElementById('fileInput').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -213,7 +194,6 @@
     document.getElementById('platformMode').addEventListener('change', buildPool);
     document.getElementById('minMentions').addEventListener('input', buildPool);
 
-    // 依模式計算籤池
     function buildPool() {
       if (!rawComments || rawComments.length === 0) return;
       const mode = document.getElementById('platformMode').value;
@@ -222,7 +202,6 @@
       validTickets = [];
 
       if (mode === 'threads') {
-        // Threads：一人一籤，過濾空帳號
         const seen = new Set();
         rawComments.forEach(item => {
           const user = (item.username || '').trim();
@@ -236,11 +215,10 @@
           }
         });
       } else {
-        // Instagram：可重複留言，但必須標記不同好友
         const userTaggedHistory = new Map();
         rawComments.forEach(comment => {
           const user = (comment.username || '').trim();
-          if (!user) return; // 略過空白帳號
+          if (!user) return;
 
           const mentions = (comment.mentions || []).filter(m => m && m.toLowerCase() !== user.toLowerCase());
 
@@ -264,7 +242,6 @@
       document.getElementById('ticketCountBadge').innerText = `${validTickets.length} 張有效籤`;
     }
 
-    // 開始抽獎
     document.getElementById('startDrawBtn').addEventListener('click', function() {
       if (validTickets.length === 0) return alert('籤池目前沒有有效名單，請先上傳 JSON 檔！');
 
@@ -273,7 +250,6 @@
       const keyword = document.getElementById('filterKeyword').value.trim().toLowerCase();
       const excludePrev = document.getElementById('excludePrevWinners').checked;
 
-      // 篩選籤池
       let pool = [...validTickets];
 
       if (excludePrev && winnersHistory.length > 0) {
@@ -289,13 +265,11 @@
         return alert('在目前的條件篩選下，沒有符合資格的候選者！');
       }
 
-      // 洗牌
       for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
 
-      // 取出不重複帳號的得獎者
       const chosenWinners = [];
       const chosenUsers = new Set();
 
@@ -307,20 +281,17 @@
         }
       }
 
-      // 執行開獎動畫與畫面呈現
       runAnimationAndDisplay(prize, chosenWinners);
     });
 
-    // 抽獎展示（支援 1 人巨幕 與 多人網格展示）
     function runAnimationAndDisplay(prize, winners) {
       document.getElementById('currentPrizeBadge').innerText = prize;
       const stage = document.getElementById('stageContainer');
 
-      // 滾動動畫效果
       let counter = 0;
       const interval = setInterval(() => {
         stage.innerHTML = `
-          <div class="text-center py-8 animate-pulse">
+          <div class="text-center py-10 animate-pulse">
             <span class="text-xs text-aqua tracking-widest font-mono">LUCKY DRAW RUNNING...</span>
             <div class="text-2xl md:text-3xl font-black text-slate-300 mt-2">
               🎲 @${validTickets[Math.floor(Math.random() * validTickets.length)].username}
@@ -335,28 +306,27 @@
       }, 70);
     }
 
-    // 渲染上方大舞台得獎者
+    // 依中獎人數自適應渲染排版（1 人巨幕、2-4 人雙欄、5 人以上三欄）
     function renderStageWinners(prize, winners) {
       const stage = document.getElementById('stageContainer');
       
-      // 慶祝彩帶
       confetti({
-        particleCount: 80,
-        spread: 70,
+        particleCount: 90,
+        spread: 80,
         origin: { y: 0.6 },
         colors: ['#79E2D0', '#3BBFA8', '#ffffff', '#FFD700']
       });
 
       if (winners.length === 1) {
-        // 單人巨幕
+        // 1 人：超大焦點巨幕
         const w = winners[0];
         stage.innerHTML = `
-          <div class="text-center w-full px-2 py-4">
+          <div class="text-center w-full px-2 py-2">
             <span class="text-xs px-3 py-1 bg-teal-500/20 text-aqua rounded-full font-semibold border border-teal-500/30">CONGRATULATIONS!</span>
-            <h3 class="text-3xl md:text-4xl font-extrabold text-aqua mt-3 break-all tracking-wide">
+            <h3 class="text-3xl md:text-4xl font-extrabold text-aqua mt-2.5 break-all tracking-wide">
               @${w.username}
             </h3>
-            <div class="mt-4 max-w-lg mx-auto bg-slate-800/80 border border-slate-700/80 p-3 rounded-xl text-left text-xs text-slate-300 shadow-inner">
+            <div class="mt-3.5 max-w-lg mx-auto bg-slate-850 bg-slate-800/80 border border-slate-700/80 p-3.5 rounded-xl text-left text-xs text-slate-300 shadow-inner">
               <span class="text-slate-400 block mb-1">💬 得獎留言：</span>
               <p class="break-words line-clamp-3">${w.text || '(無內文)'}</p>
               ${w.validMentions && w.validMentions.length ? `<span class="mt-2 block text-teal-400 font-mono text-[11px]">標記好友：@${w.validMentions.join(' @')}</span>` : ''}
@@ -364,15 +334,19 @@
           </div>
         `;
       } else {
-        // 多人網格展示
+        // 多人：判斷排版欄數（2~4 人用雙欄 grid-cols-2；5 人以上用三欄 grid-cols-1 md:grid-cols-3）
+        const gridColsClass = winners.length <= 4 
+          ? "grid grid-cols-1 sm:grid-cols-2 gap-2.5" 
+          : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2";
+
         const cardsHtml = winners.map((w, idx) => `
-          <div class="bg-slate-850 bg-slate-800/70 border border-slate-700/90 rounded-xl p-3 flex flex-col justify-between shadow-md">
+          <div class="bg-slate-800/80 border border-slate-700/90 rounded-xl p-3 flex flex-col justify-between shadow-md">
             <div>
               <div class="flex items-center justify-between gap-1 mb-1.5">
                 <span class="text-xs font-bold text-aqua break-all">#${idx + 1} @${w.username}</span>
-                <span class="text-[10px] text-teal-300/80 font-mono">WINNER</span>
+                <span class="text-[10px] text-teal-300/80 font-mono">WIN</span>
               </div>
-              <p class="text-[11px] text-slate-300 line-clamp-2 bg-slate-900/60 p-2 rounded border border-slate-800/80">
+              <p class="text-[11px] text-slate-300 line-clamp-2 bg-slate-900/70 p-2 rounded border border-slate-800">
                 ${w.text || '(無內文)'}
               </p>
             </div>
@@ -382,19 +356,19 @@
 
         stage.innerHTML = `
           <div class="w-full">
-            <div class="text-center mb-3">
+            <div class="text-center mb-2.5">
               <span class="text-xs px-3 py-0.5 bg-teal-500/20 text-aqua rounded-full font-semibold border border-teal-500/30">
                 恭喜以下 ${winners.length} 位幸運兒獲得【${prize}】！
               </span>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-[220px] overflow-y-auto custom-scroll pr-1">
+            <div class="${gridColsClass} max-h-[250px] overflow-y-auto custom-scroll pr-1">
               ${cardsHtml}
             </div>
           </div>
         `;
       }
 
-      // 寫入下方歷史清冊
+      // 寫入清冊
       winners.forEach(w => {
         winnersHistory.unshift({
           prize: prize,
@@ -408,7 +382,6 @@
       renderHistory();
     }
 
-    // 渲染下方中獎清冊
     function renderHistory() {
       const listEl = document.getElementById('winnersHistoryList');
       document.getElementById('winnerBadge').innerText = `共 ${winnersHistory.length} 位`;
@@ -450,7 +423,6 @@
       }
     }
 
-    // 一鍵複製公告文案
     function copyAnnouncement() {
       if (winnersHistory.length === 0) return alert('目前尚無中獎名單可複製！');
 
